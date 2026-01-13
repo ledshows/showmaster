@@ -81,21 +81,6 @@
 
         <div class="sm-divider"></div>
 
-        <div class="sm-row3">
-          <div class="sm-field">
-            <label>Bg</label>
-            <input id="smWidgetBg" type="color" value="#0ea5e9" />
-          </div>
-          <div class="sm-field">
-            <label>Text</label>
-            <input id="smWidgetText" type="color" value="#e5e7eb" />
-          </div>
-          <div class="sm-field">
-            <label>Border</label>
-            <input id="smWidgetBorder" type="color" value="#22d3ee" />
-          </div>
-        </div>
-
 
         <div class="sm-colorRow">
           <div class="sm-field">
@@ -112,7 +97,7 @@
           <input id="smBorder" type="color" />
         </div>
 
-<div id=\"smActionFields\">
+	<div id="smActionFields">
           <div class="sm-field">
             <label>Label</label>
             <input id="smLabel" maxlength="40" />

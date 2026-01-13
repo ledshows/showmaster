@@ -516,6 +516,10 @@
       w.label = $(this).val();
       $(`.sm-widget[data-id='${w.id}'] .sm-label`).text(w.label);
     });
+
+    // icon picker
+    $('#smIconPick').on('change', function () {
+      const w = getSelected();
       if (!w || w.type !== 'action') return;
       w.icon = $(this).val();
       renderCanvas();
