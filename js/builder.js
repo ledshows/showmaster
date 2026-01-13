@@ -95,9 +95,10 @@
       color: w.text,
       borderColor: w.border,
       borderWidth: (w.borderSize||0) + "px",
-      borderRadius: (w.radius||0) + "px",
-      fontSize: (w.textSize||12) + "px"
+      borderRadius: (w.radius||0) + "px"
     });
+    // Text size belongs on the inner content (CSS sets a default there).
+    try { $el.find('.sm-inner').css('font-size', (w.textSize||12) + 'px'); } catch(e) {}
     $el.attr("data-id", w.id);
   }
 
@@ -117,15 +118,19 @@
     ensureCanvasSizing();
     var $c = $("#smCanvas");
     document.getElementById('smCanvas').style.setProperty('--smCanvasBg', state.device.bg || '#070a12');
-    $c.empty();
+    // Keep the grid overlay element; only remove widgets.
+    $c.find('.sm-widget').remove();
+    if (!$c.find('.sm-grid').length) {
+      $c.prepend("<div class='sm-grid'></div>");
+    }
+    $c.find('.sm-grid').css('display', state.snap ? 'block' : 'none');
 
     for (var i=0;i<state.widgets.length;i++) {
       var w = normalizeWidget(state.widgets[i]);
-      var $el = $("<div class='smWidget'></div>");
-      $el.toggleClass("action", w.type === "action");
-      $el.toggleClass("status", w.type === "status");
-      if (w.id === state.selectedId) $el.addClass("selected");
-      $el.html(widgetText(w));
+      var $el = $("<div class='sm-widget'><div class='sm-inner'></div></div>");
+      $el.attr('data-type', w.type);
+      if (w.id === state.selectedId) $el.addClass("sm-selected");
+      $el.find('.sm-inner').html(widgetText(w));
       applyWidgetCss($el, w);
       $c.append($el);
 
@@ -201,8 +206,8 @@
 
   function highlightSelection(id){
     try{
-      $('#smCanvas .sm-widget').removeClass('is-selected');
-      if(id){ $('#smCanvas .sm-widget[data-id="'+id+'"]').addClass('is-selected'); }
+      $('#smCanvas .sm-widget').removeClass('sm-selected');
+      if(id){ $('#smCanvas .sm-widget[data-id="'+id+'"]').addClass('sm-selected'); }
     }catch(e){}
   }
 
@@ -214,34 +219,43 @@
       highlightSelection(id);
     }
     renderProps();
-  
-    highlightSelection(state.selectedId);
-}
+  }
 
   // -------- properties panel --------
   function renderProps() {
     var w = widgetById(state.selectedId);
     if (!w) {
-      $("#smPropsBody").html("<div class='muted'>Select a widget on the canvas.</div>");
+      $('#smPropsForm').hide();
+      $('#smNoSelection').show();
+      $('#smDelete').prop('disabled', true);
       return;
     }
     w = normalizeWidget(w);
 
-    $("#smPropsType").val(w.type);
+    $('#smNoSelection').hide();
+    $('#smPropsForm').show();
+    $('#smDelete').prop('disabled', false);
+
+    $("#smType").val(w.type);
+    $("#smId").val(w.id);
     $("#smX").val(w.x); $("#smY").val(w.y); $("#smW").val(w.w); $("#smH").val(w.h);
-    $("#smBg").val(w.bg); $("#smText").val(w.text); $("#smBorder").val(w.border);
+    $("#smBg").val(w.bg);
+    $("#smFg").val(w.text);
+    $("#smBorder").val(w.border);
     $("#smBorderSize").val(w.borderSize);
     $("#smRadius").val(w.radius);
-    $("#smTextSize").val(w.textSize);
+    $("#smFontSize").val(w.textSize);
 
     $("#smActionFields").toggle(w.type === "action");
     $("#smStatusFields").toggle(w.type === "status");
 
     if (w.type === "action") {
       $("#smLabel").val(w.label || "");
-      $("#smIcon").val(w.icon || "");
+      $("#smIconValue").val(w.icon || "");
       $("#smIconSize").val(w.iconSize || 14);
-      $("#smCmdSummary").text(w.command ? w.command : "Choose…");
+      $("#smCommandDisplay").val(w.command ? w.command : "");
+      $("#smCommand").val(w.command || "");
+      $("#smCommandArgsJson").val(w.args ? JSON.stringify(w.args) : "{}");
     } else {
       $("#smSource").val(w.source || "player.statusText");
     }
@@ -257,9 +271,9 @@
     }
     $("#smX,#smY,#smW,#smH").off("input change").on("input change", updatePosSize);
 
-    $("#smBg,#smText,#smBorder").off("input change").on("input change", function(){
+    $("#smBg,#smFg,#smBorder").off("input change").on("input change", function(){
       var w = widgetById(state.selectedId); if (!w) return;
-      w.bg = $("#smBg").val(); w.text = $("#smText").val(); w.border = $("#smBorder").val();
+      w.bg = $("#smBg").val(); w.text = $("#smFg").val(); w.border = $("#smBorder").val();
       renderCanvas(); renderProps();
     });
     $("#smBorderSize").off("input change").on("input change", function(){
@@ -272,7 +286,7 @@
       w.radius = toInt($(this).val(), 10);
       renderCanvas(); renderProps();
     });
-    $("#smTextSize").off("input change").on("input change", function(){
+    $("#smFontSize").off("input change").on("input change", function(){
       var w = widgetById(state.selectedId); if (!w) return;
       w.textSize = toInt($(this).val(), 12);
       renderCanvas(); renderProps();
@@ -299,6 +313,13 @@
     $("#smPickIcon").off("click").on("click", function(e){
       e.preventDefault();
       openIconModal();
+    });
+
+    $("#smClearIcon").off("click").on("click", function(e){
+      e.preventDefault();
+      var w = widgetById(state.selectedId); if (!w || w.type!=="action") return;
+      w.icon = "";
+      renderCanvas(); renderProps();
     });
 
     $("#smPickCommand").off("click").on("click", function(e){
@@ -461,7 +482,7 @@
       command: ""
     });
     state.widgets.push(w);
-    setSelection(w.id);
+    setSelection(w.id, true);
   }
   function addStatus() {
     var w = normalizeWidget({
@@ -471,7 +492,7 @@
       source: "player.statusText"
     });
     state.widgets.push(w);
-    setSelection(w.id);
+    setSelection(w.id, true);
   }
 
   // -------- save/load/push --------
@@ -532,13 +553,13 @@
   }
 
   function pushToShowmaster() {
-    var ip = ($("#smHost").val() || "").trim();
+    var ip = ($("#smDeviceIp").val() || "").trim();
     if (!ip) { toast("Enter Showmaster IP first.", true); return; }
     // naive validation: must contain digit/dot/colon
     if (!/^[0-9a-fA-F\.\:\-]+$/.test(ip)) { toast("Invalid IP/host.", true); return; }
 
     var cfg = exportConfig();
-    $("#smPush").prop("disabled", true);
+    $("#smUpload").prop("disabled", true);
     $.ajax({
       url: "api/push.php",
       method: "POST",
@@ -549,14 +570,20 @@
       else toast((resp && resp.error) ? resp.error : "Push failed.", true);
     }).fail(function(xhr){
       toast("Push failed (" + xhr.status + ").", true);
-    }).always(function(){ $("#smPush").prop("disabled", false); });
+    }).always(function(){ $("#smUpload").prop("disabled", false); });
   }
 
   // -------- init --------
   function wireUi() {
     fillSources();
 
-    $("#smCanvas").off("mousedown").on("mousedown", function(){ state.selectedId = null; renderCanvas(); renderProps(); });
+    // Clicking empty canvas clears selection (do not re-render on mousedown).
+    $("#smCanvas").off("click").on("click", function(e){
+      if ($(e.target).closest('.sm-widget').length) return;
+      state.selectedId = null;
+      highlightSelection(null);
+      renderProps();
+    });
 
     $("#smAddAction").off("click").on("click", function(e){ e.preventDefault(); addAction(); });
     $("#smAddStatus").off("click").on("click", function(e){ e.preventDefault(); addStatus(); });
@@ -570,7 +597,7 @@
       apiGetConfig().done(function(cfg){ loadConfig(cfg); toast("Loaded.", false); }).fail(function(){ toast("Load failed.", true); });
     });
 
-    $("#smPush").off("click").on("click", function(e){ e.preventDefault(); pushToShowmaster(); });
+    $("#smUpload").off("click").on("click", function(e){ e.preventDefault(); pushToShowmaster(); });
 
     $("#smCanvasBg").off("input change").on("input change", function(){
       state.device.bg = $(this).val();

@@ -388,3 +388,6 @@
 .smIconTile{width:40px;height:40px;border-radius:10px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);margin:6px;}
 .smIconTile i{font-size:18px;}
 .smIconTile.active{outline:2px solid rgba(34,211,238,.8);}
+
+.sm-modalTools{margin-bottom:10px;}
+.smIconGrid{display:flex;flex-wrap:wrap;gap:6px;max-height:60vh;overflow:auto;padding:6px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(0,0,0,.25);}

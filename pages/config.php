@@ -187,9 +187,29 @@
         </button>
       </div>
       <div class="modal-body">
+        <div class="sm-modalTools">
+          <input id="smIconFind" class="form-control" placeholder="Search icons..." />
+        </div>
+        <div id="smIconGrid" class="smIconGrid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Command Picker Modal -->
+<div class="modal fade" id="smCmdModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title">Command for Button</h4>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
         <div class="bb_commandTableWrap">
           <div class="bb_commandTableCrop">
-            <table border="0" class="tableButton" id="smCmdTable">
+            <table border="0" class="tableButton">
               <tbody>
                 <tr>
                   <td>Command:</td>
@@ -197,11 +217,30 @@
                     <select id="smCmdSelect" class="form-control"></select>
                   </td>
                 </tr>
-                <tr id="smCmdDescRow" style="display:none;">
+                <tr>
                   <td></td>
-                  <td id="smCmdDescText" class="text-muted"></td>
+                  <td id="smCmdDesc" class="text-muted" style="font-size:12px;"></td>
                 </tr>
-                <tbody id="smCmdArgs"></tbody>
+                <tr id="smCmdFlagsRow">
+                  <td>Multisync:</td>
+                  <td>
+                    <label style="margin-right:12px;"><input type="checkbox" id="smCmdMultisync" /> Multisync</label>
+                    <label style="margin-right:12px;"><input type="checkbox" id="smCmdRepeat" /> Repeat</label>
+                    <label><input type="checkbox" id="smCmdIfNotRunning" /> If Not Running</label>
+                  </td>
+                </tr>
+                <tr id="smCmdPlaylistRow">
+                  <td>Playlist:</td>
+                  <td>
+                    <select id="smCmdPlaylist" class="form-control"></select>
+                  </td>
+                </tr>
+                <tr id="smCmdArgRow">
+                  <td>Arg:</td>
+                  <td>
+                    <input id="smCmdArg" class="form-control" placeholder="Optional argument" />
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
