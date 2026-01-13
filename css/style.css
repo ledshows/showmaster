@@ -391,3 +391,43 @@
 
 .sm-modalTools{margin-bottom:10px;}
 .smIconGrid{display:flex;flex-wrap:wrap;gap:6px;max-height:60vh;overflow:auto;padding:6px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(0,0,0,.25);}
+
+/* Icon picker modal */
+#smIconModal .modal-body {
+  padding: 10px 14px;
+}
+
+#smIconGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 10px;
+  max-height: 70vh;
+  overflow: auto;
+  padding: 10px 0;
+}
+
+.sm-icon-tile {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  cursor: pointer;
+  user-select: none;
+}
+
+.sm-icon-tile:hover {
+  background: rgba(255,255,255,0.10);
+  border-color: rgba(0,255,255,0.35);
+}
+
+.sm-icon-tile i {
+  font-size: 30px;  /* groter icoon */
+  line-height: 1;
+}
+
+/* verberg eventuele tekstlabels onder icons */
+.sm-icon-label { display: none !important; }
