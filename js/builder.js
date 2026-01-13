@@ -421,54 +421,57 @@ function prettySourceLabel(id) {
   }
 
   
-async function fetchCommands() {
-    try {
-      const resp = await fetch('/api/commands');
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const json = await resp.json();
-
-      let list = [];
+function fetchCommands() {
+    return $.getJSON('/api/commands').then(function (json) {
+      var list = [];
       if (Array.isArray(json)) list = json;
-      else if (Array.isArray(json.commands)) list = json.commands;
-      else if (Array.isArray(json.data)) list = json.data;
+      else if (json && Array.isArray(json.commands)) list = json.commands;
+      else if (json && Array.isArray(json.data)) list = json.data;
 
-      // Normalize to objects: { name, description, args }
-      commandsCache = (list || []).map(x => {
+      commandsCache = (list || []).map(function (x) {
         if (typeof x === 'string') return { name: x, description: '', args: [] };
-        const name = (x.name || x.command || '').toString();
+        var name = (x.name || x.command || '').toString();
         if (!name) return null;
-        const desc = (x.description || x.desc || x.help || x.summary || '').toString();
-        const args = Array.isArray(x.args) ? x.args : (Array.isArray(x.arguments) ? x.arguments : (Array.isArray(x.params) ? x.params : []));
-        return { name, description: desc, args };
+        var desc = (x.description || x.desc || x.help || x.summary || '').toString();
+        var args = Array.isArray(x.args) ? x.args : (Array.isArray(x.arguments) ? x.arguments : (Array.isArray(x.params) ? x.params : []));
+        return { name: name, description: desc, args: args };
       }).filter(Boolean);
 
-      commandsCache.sort((a,b)=>a.name.localeCompare(b.name));
+      commandsCache.sort(function(a,b){ return a.name.localeCompare(b.name); });
       state.commands = commandsCache;
-    } catch (e) {
+      return commandsCache;
+    }).catch(function (e) {
       commandsCache = [];
       state.commands = [];
       console.warn('Showmaster: could not load /api/commands', e);
       toast('Could not load command list', true);
-    }
+      return [];
+    });
   }
   }
 
-async function fetchPlaylists() {
-  try {
-    const resp = await fetch('/api/playlists');
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const json = await resp.json();
-    let list = [];
-    if (Array.isArray(json)) list = json;
-    else if (Array.isArray(json.playlists)) list = json.playlists;
-    else if (Array.isArray(json.data)) list = json.data;
-    playlistsCache = list.map(x => (typeof x === 'string' ? x : (x.name || x.playlist || x.id || ''))).filter(Boolean);
-    playlistsCache.sort((a,b) => a.localeCompare(b));
-  } catch (e) {
-    playlistsCache = [];
-    console.warn('Showmaster: could not load /api/playlists', e);
+function fetchPlaylists() {
+    return $.getJSON('/api/playlists').then(function (json) {
+      var list = [];
+      if (Array.isArray(json)) list = json;
+      else if (json && Array.isArray(json.playlists)) list = json.playlists;
+      else if (json && Array.isArray(json.data)) list = json.data;
+
+      // normalize: strings or {name}
+      playlistsCache = (list || []).map(function (x) {
+        if (typeof x === 'string') return x;
+        return (x && (x.name || x.playlist || x.filename) ? (x.name || x.playlist || x.filename) : null);
+      }).filter(Boolean);
+
+      playlistsCache.sort();
+      populatePlaylistsDatalist();
+      return playlistsCache;
+    }).catch(function (e) {
+      playlistsCache = [];
+      console.warn('Showmaster: could not load /api/playlists', e);
+      return [];
+    });
   }
-}
 
 function populatePlaylistsSelect() {
   const $p = $('#smPlaylist');
@@ -600,50 +603,50 @@ $('#smGridToggle').prop('checked', !!state.snap);
       })
     };
   }
-
-  async function saveConfig() {
-    try {
-      const data = JSON.stringify(toExport(), null, 2);
-      const resp = await fetch(`api/configfile/${CONFIG_FILE}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: data
-      });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    function saveConfig() {
+    var data = JSON.stringify(toExport(), null, 2);
+    return $.ajax({
+      url: 'api/configfile/' + CONFIG_FILE,
+      method: 'POST',
+      contentType: 'application/json',
+      data: data
+    }).done(function () {
       toast('Saved.');
       $('#smSave').addClass('success');
-      setTimeout(() => $('#smSave').removeClass('success'), 1500);
-    } catch (e) {
-      console.error(e);
+      setTimeout(function(){ $('#smSave').removeClass('success'); }, 1500);
+    }).fail(function (xhr) {
+      console.error('Save failed', xhr);
       toast('Save failed.', true);
-    }
+    });
   }
-
-  async function loadConfig() {
-    // try saved config
-    try {
-      const resp = await fetch(`api/configfile/${CONFIG_FILE}`);
-      if (resp.ok) {
-        const json = await resp.json();
-        applyLoaded(json);
-        toast('Loaded.');
-        return;
+    function loadConfig() {
+    return $.getJSON('api/configfile/' + CONFIG_FILE).then(function (cfg) {
+      if (cfg && cfg.device && cfg.widgets) {
+        state.device = Object.assign(state.device || {}, cfg.device);
+        state.widgets = (cfg.widgets || []).map(function (w) { return hydrateWidget(w); });
+      } else if (cfg && cfg.device && cfg.items) { // legacy
+        state.device = Object.assign(state.device || {}, cfg.device);
+        state.widgets = (cfg.items || []).map(function (w) { return hydrateWidget(w); });
+      } else if (cfg && cfg.widgets) {
+        state.widgets = (cfg.widgets || []).map(function (w) { return hydrateWidget(w); });
       }
-    } catch (e) {
-      // ignore
-    }
-
-    // fallback to plugin default
-    try {
-      const resp2 = await fetch('plugin.php?plugin=showmaster&file=data/default.json&nopage=1');
-      if (!resp2.ok) throw new Error(`HTTP ${resp2.status}`);
-      const json2 = await resp2.json();
-      applyLoaded(json2);
-      toast('Loaded default.');
-    } catch (e) {
-      console.error(e);
-      toast('Load failed.', true);
-    }
+      // apply UI
+      applyDeviceBg();
+      renderCanvas();
+      renderProps();
+      return cfg;
+    }).catch(function () {
+      // if missing config, load default
+      return $.getJSON('plugin.php?plugin=showmaster&file=data/default.json').then(function (def) {
+        if (def && def.device) state.device = Object.assign(state.device || {}, def.device);
+        state.widgets = (def.widgets || []).map(function (w) { return hydrateWidget(w); });
+        applyDeviceBg();
+        renderCanvas();
+        renderProps();
+      }).catch(function () {
+        // nothing
+      });
+    });
   }
 
   function applyLoaded(json) {
@@ -661,39 +664,35 @@ $('#smGridToggle').prop('checked', !!state.snap);
   }
 
   
-async function uploadToShowmaster() {
-  const ip = ($('#smDeviceIp').val() || '').trim();
-  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) {
-    toast('Enter a valid Showmaster IP address (e.g. 192.168.1.50).', true);
-    $('#smDeviceIp').focus();
-    return;
-  }
-
-  const config = toExport();
-
-  try {
-    const resp = await fetch(`plugin.php?plugin=showmaster&file=api/push.php&nopage=1`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ip, config })
-    });
-
-    const txt = await resp.text();
-    let json = null;
-    try { json = JSON.parse(txt); } catch (e) {}
-
-    if (!resp.ok) {
-      const msg = (json && (json.error || json.message)) ? (json.error || json.message) : `Push failed (HTTP ${resp.status})`;
-      toast(msg, true);
-      return;
+function uploadToShowmaster() {
+    var ip = ($('#smIp').val() || '').trim();
+    if (!ip) { toast('Enter Showmaster IP.', true); return $.Deferred().reject().promise(); }
+    if (!/^([0-9]{1,3}\.){3}[0-9]{1,3}$/.test(ip) && ip.indexOf(':') === -1 && ip.indexOf('.') === -1) {
+      toast('Invalid IP/host.', true);
+      return $.Deferred().reject().promise();
     }
 
-    toast((json && json.message) ? json.message : 'Pushed to Showmaster.', false);
-  } catch (e) {
-    console.error(e);
-    toast('Push failed. Check network/IP.', true);
+    var payload = JSON.stringify(toExport(), null, 0);
+    $('#smUpload').prop('disabled', true).addClass('loading');
+    return $.ajax({
+      url: 'api/push.php',
+      method: 'POST',
+      dataType: 'json',
+      data: { ip: ip, payload: payload }
+    }).done(function (resp) {
+      if (resp && resp.ok) toast('Pushed to Showmaster.');
+      else toast((resp && resp.error) ? resp.error : 'Push failed.', true);
+    }).fail(function (xhr) {
+      var msg = 'Push failed.';
+      try {
+        var j = xhr.responseJSON;
+        if (j && j.error) msg = j.error;
+      } catch(e) {}
+      toast(msg, true);
+    }).always(function () {
+      $('#smUpload').prop('disabled', false).removeClass('loading');
+    });
   }
-}
 
 
 
@@ -937,61 +936,18 @@ function rebuildCmdArgsUI(w) {
   `);
 }
 
-async function init() {
-    ensureCanvasSizing();
-
-    // canvas background
-    $('#smCanvasBg').on('input change', function(){
-      state.device.bg = $(this).val();
-      $('#smCanvas').css('background', state.device.bg);
-    });
-
-    // zoom slider
-    $('#smZoom').on('input change', function () {
+function init() {
+    try {
       ensureCanvasSizing();
-      renderCanvas(); // rerender at new scale
-    });
-
-// snap/grid toggle
-    $('#smGridToggle').on('change', function () {
-      state.snap = !!$(this).is(':checked');
-      $('.sm-grid').toggle(state.snap);
-      ensureCanvasSizing();
-      renderCanvas();
-      if (selectedId) setSelection(selectedId);
-    });
-
-    // click empty canvas clears selection
-    $('#smCanvas').on('mousedown', function () {
-      setSelection(null);
-    });
-
-    // buttons
-    $('#smAddAction').on('click', () => addWidget('action'));
-    $('#smAddStatus').on('click', () => addWidget('status'));
-    $('#smDelete').on('click', deleteSelected);
-    $('#smSave').on('click', saveConfig);
-    $('#smLoad').on('click', loadConfig);
-    $('#smUpload').on('click', uploadToShowmaster);
-
-    // del key
-    $(document).on('keydown', function (e) {
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
-        // ignore when typing in inputs
-        const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
-        if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
-        e.preventDefault();
-        deleteSelected();
-      }
-    });
-
-    wirePropsInputs();
-    await fetchCommands();
-    await fetchPlaylists();
-    await loadConfig();
-
-    if (!($.fn.draggable && $.fn.resizable)) {
-      toast('Note: jQuery UI not found. Drag/resize may not work on this FPP build.', true);
+      wireEvents();
+      applyZoomUI();
+      // Load data then config
+      fetchCommands().then(function(){ return fetchPlaylists(); })
+        .then(function(){ return loadConfig(); })
+        .then(function(){ renderCanvas(); renderProps(); })
+        .catch(function(e){ console.warn('Showmaster init warning', e); });
+    } catch (e) {
+      console.error('Showmaster init failed', e);
     }
   }
 
