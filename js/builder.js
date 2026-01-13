@@ -108,10 +108,10 @@ function renderCanvas() {
     const $el = $('<div class="sm-widget"></div>');
     $el.attr('data-id', w.id);
     $el.css({
-      left: w.x,
-      top: w.y,
-      width: w.w,
-      height: w.h,
+      left: Math.round(w.x * getScale()),
+      top: Math.round(w.y * getScale()),
+      width: Math.round(w.w * getScale()),
+      height: Math.round(w.h * getScale()),
       background: w.bg,
       color: w.fg,
       borderColor: w.border,
@@ -124,7 +124,7 @@ function renderCanvas() {
     if (w.type === 'action') {
       $el.addClass('sm-action').html(`
         <div class="sm-inner">
-          <span class="sm-icon">${w.icon ? `<i class="fas fa-${escapeHtml(w.icon)}"></i>` : ''}</span>
+          <span class="sm-icon">${w.icon ? `<i class="fas fa-${escapeHtml(w.icon)}" style="font-size:${(w.iconSize ?? 14)}px"></i>` : ''}</span>
           <span class="sm-label">${escapeHtml(w.label || 'Button')}</span>
         </div>
       `);
@@ -146,45 +146,45 @@ function renderCanvas() {
     if ($.fn.draggable && $.fn.resizable) {
       $el.draggable({
         containment: 'parent',
-        grid: state.snap ? [GRID, GRID] : false,
+        grid: state.snap ? [GRID * getScale(), GRID * getScale()] : false,
         scroll: false,
         start: () => setSelection(w.id),
         drag: (e, ui) => {
-          w.x = Math.round(ui.position.left);
-          w.y = Math.round(ui.position.top);
+          w.x = Math.round(ui.position.left / getScale());
+          w.y = Math.round(ui.position.top / getScale());
           syncPropsXYWH(w);
         },
         stop: (e, ui) => {
-          let nx = Math.round(ui.position.left);
-          let ny = Math.round(ui.position.top);
+          let nx = Math.round(ui.position.left / getScale());
+          let ny = Math.round(ui.position.top / getScale());
           if (state.snap) {
             nx = Math.round(nx / GRID) * GRID;
             ny = Math.round(ny / GRID) * GRID;
           }
           w.x = clamp(nx, 0, DEVICE_W - w.w);
           w.y = clamp(ny, 0, DEVICE_H - w.h);
-          $el.css({ left: w.x, top: w.y });
+          $el.css({ left: Math.round(w.x * getScale()), top: w.y });
           syncPropsXYWH(w);
         }
       });
 
       $el.resizable({
         containment: 'parent',
-        grid: state.snap ? GRID : false,
+        grid: state.snap ? GRID * getScale() : false,
         handles: 'n,e,s,w,ne,se,sw,nw',
         start: () => setSelection(w.id),
         resize: (e, ui) => {
-          w.x = Math.round(ui.position.left);
-          w.y = Math.round(ui.position.top);
-          w.w = Math.round(ui.size.width);
-          w.h = Math.round(ui.size.height);
+          w.x = Math.round(ui.position.left / getScale());
+          w.y = Math.round(ui.position.top / getScale());
+          w.w = Math.round(ui.size.width / getScale());
+          w.h = Math.round(ui.size.height / getScale());
           syncPropsXYWH(w);
         },
         stop: (e, ui) => {
-          let nx = Math.round(ui.position.left);
-          let ny = Math.round(ui.position.top);
-          let nw = Math.round(ui.size.width);
-          let nh = Math.round(ui.size.height);
+          let nx = Math.round(ui.position.left / getScale());
+          let ny = Math.round(ui.position.top / getScale());
+          let nw = Math.round(ui.size.width / getScale());
+          let nh = Math.round(ui.size.height / getScale());
 
           if (state.snap) {
             nx = Math.round(nx / GRID) * GRID;
@@ -198,7 +198,7 @@ function renderCanvas() {
           w.x = clamp(nx, 0, DEVICE_W - w.w);
           w.y = clamp(ny, 0, DEVICE_H - w.h);
 
-          $el.css({ left: w.x, top: w.y, width: w.w, height: w.h });
+          $el.css({ left: Math.round(w.x * getScale()), top: Math.round(w.y * getScale()), width: Math.round(w.w * getScale()), height: w.h });
           syncPropsXYWH(w);
         }
       });
@@ -220,7 +220,43 @@ function renderCanvas() {
     return `fa fa-${name}`;
   }
 
-  function escapeHtml(s) {
+  
+// --- Icon grid helpers ---
+let __iconGridBuilt = false;
+function normalizeIconName(x) {
+  if (!x) return '';
+  if (typeof x === 'string') return x.replace(/^fa[srbld] fa-/, '').replace(/^fa-/, '').trim();
+  if (typeof x === 'object') {
+    if (x.icon) return normalizeIconName(x.icon);
+    if (x.title) return normalizeIconName(x.title);
+    if (x.name) return normalizeIconName(x.name);
+  }
+  return String(x);
+}
+function getIconList() {
+  if (!window.FA_ICONS) return [];
+  return window.FA_ICONS.map(normalizeIconName).filter(Boolean);
+}
+function buildIconGrid() {
+  if (__iconGridBuilt) return;
+  const icons = getIconList();
+  const $g = $('#smIconGrid');
+  $g.empty();
+  icons.forEach(ic => {
+    const safe = escapeHtml(ic);
+    $g.append(`<button type="button" class="sm-iconBtn" data-icon="${safe}" title="${safe}"><i class="fas fa-${safe}"></i></button>`);
+  });
+  __iconGridBuilt = true;
+}
+function filterIconGrid(q) {
+  q = (q || '').toLowerCase().trim();
+  $('#smIconGrid .sm-iconBtn').each(function () {
+    const ic = String($(this).data('icon') || '').toLowerCase();
+    $(this).toggle(!q || ic.includes(q));
+  });
+}
+
+function escapeHtml(s) {
     return String(s)
       .replaceAll('&', '&amp;')
       .replaceAll('<', '&lt;')
@@ -262,12 +298,12 @@ $('#smRadius').val(w.radius ?? 10);
       // command select options
       populateCommandsSelect();
       $('#smCommand').val(w.command || '');
+      $('#smCommandDisplay').val(prettyCommandLabel(w.command, w.args));
+      $('#smCommandArgsJson').val(JSON.stringify(w.args || {}));
       updateCmdArgsUI(w);
 
-      populateIconPicker();
-      $('#smIconSearch').val(w.icon || '');
-      filterIconPick(w.icon || '');
-      syncIconPickSelection(w.icon || '');
+      $('#smIconValue').val(w.icon || '');
+      $('#smIconSize').val(w.iconSize ?? 14);
     } else {
       $('#smActionFields').hide();
       $('#smStatusFields').show();
@@ -313,6 +349,7 @@ function prettySourceLabel(id) {
 }
 
   function populateIconPicker() {
+    if (!$('#smIconPick').length) return;
     const $pick = $('#smIconPick');
     if ($pick.data('populated')) return;
     const list = getFaIconList();
@@ -470,7 +507,43 @@ function updateCmdArgsUI(w) {
     selectedId = null;
     $('#smCanvas').css({ background: state.device.bg || '#05070d' });
     $('#smCanvasBg').val(state.device.bg || '#05070d');
-    $('#smGridToggle').prop('checked', !!state.snap);
+    
+// style/property inputs
+$('#smBg, #smFg, #smBorder').on('input change', function () {
+  const w = getSelected();
+  if (!w) return;
+  w.bg = $('#smBg').val();
+  w.fg = $('#smFg').val();
+  w.border = $('#smBorder').val();
+  renderCanvas();
+  setSelection(w.id);
+});
+
+$('#smFontSize').on('input change', function () {
+  const w = getSelected();
+  if (!w) return;
+  w.fontSize = parseInt($(this).val() || '12', 10);
+  renderCanvas();
+  setSelection(w.id);
+});
+
+$('#smBorderSize').on('input change', function () {
+  const w = getSelected();
+  if (!w) return;
+  w.borderSize = parseInt($(this).val() || '2', 10);
+  renderCanvas();
+  setSelection(w.id);
+});
+
+$('#smRadius').on('input change', function () {
+  const w = getSelected();
+  if (!w) return;
+  w.radius = parseInt($(this).val() || '10', 10);
+  renderCanvas();
+  setSelection(w.id);
+});
+
+$('#smGridToggle').prop('checked', !!state.snap);
     renderCanvas();
     renderProps();
   }
@@ -603,7 +676,7 @@ async function uploadToShowmaster() {
         normalizeWidget(w);
 
         const $el = $(`.sm-widget[data-id='${w.id}']`);
-        $el.css({ left: w.x, top: w.y, width: w.w, height: w.h, background: w.bg, color: w.fg, borderColor: w.border, borderWidth: (w.borderSize??2)+'px', borderRadius: (w.radius??10)+'px', fontSize: (w.fontSize??12)+'px' });
+        $el.css({ left: Math.round(w.x * getScale()), top: Math.round(w.y * getScale()), width: Math.round(w.w * getScale()), height: Math.round(w.h * getScale()), background: w.bg, color: w.fg, borderColor: w.border, borderWidth: (w.borderSize??2)+'px', borderRadius: (w.radius??10)+'px', fontSize: (w.fontSize??12)+'px' });
       });
     }
 
@@ -619,128 +692,174 @@ async function uploadToShowmaster() {
       $(`.sm-widget[data-id='${w.id}'] .sm-label`).text(w.label);
     });
 
-    // icon picker
-    $('#smIconPick').on('change', function () {
+    // icon picker (modal)
+    $('#smPickIcon').on('click', function (e) {
+      e.preventDefault();
       const w = getSelected();
       if (!w || w.type !== 'action') return;
-      w.icon = $(this).val();
+      $('#smIconModalSearch').val(w.icon || '');
+      buildIconGrid();
+      filterIconGrid(w.icon || '');
+      $('#smIconModal').modal('show');
+    });
+
+    $('#smIconModalSearch').on('input', function () {
+      filterIconGrid($(this).val() || '');
+    });
+
+    $('#smIconGrid').on('click', '.sm-iconBtn', function () {
+      const w = getSelected();
+      if (!w || w.type !== 'action') return;
+      const icon = $(this).data('icon') || '';
+      w.icon = icon;
+      $('#smIconValue').val(icon);
+      renderCanvas();
+      setSelection(w.id);
+      $('#smIconModal').modal('hide');
+    });
+
+    $('#smIconValue').on('input', function () {
+      const w = getSelected();
+      if (!w || w.type !== 'action') return;
+      w.icon = $(this).val().trim();
       renderCanvas();
       setSelection(w.id);
     });
 
-    $('#smCommand').on('change', function () {
+    $('#smIconSize').on('input change', function () {
       const w = getSelected();
       if (!w || w.type !== 'action') return;
-      w.command = $(this).val();
-      w.args = {};
-      updateCmdArgsUI(w);
-    });
-
-    $('#smPlaylist').on('change', function () {
-      const w = getSelected();
-      if (!w || w.type !== 'action') return;
-      if (!w.args) w.args = {};
-      w.args.playlist = $(this).val();
-    });
-
-    $('#smArg').on('input', function () {
-      const w = getSelected();
-      if (!w || w.type !== 'action') return;
-      if (!w.args) w.args = {};
-      w.args.arg = $(this).val();
-    });
-
-    $('#smSource').on('change', function () {
-      const w = getSelected();
-      if (!w || w.type !== 'status') return;
-      w.source = $(this).val();
-      $(`.sm-widget[data-id='${w.id}'] .sm-label`).text(prettySourceLabel(w.source));
-    });
-
-
-    // widget colors
-    function applyColor(id, key) {
-      $(id).on('input', function () {
-        const w = getSelected();
-        if (!w) return;
-        w[key] = $(this).val();
-        const $el = $(`.sm-widget[data-id='${w.id}']`);
-        $el.css({ background: w.bg, color: w.fg, borderColor: w.border });
-      });
-    }
-
-    applyColor('#smBg', 'bg');
-    applyColor('#smFg', 'fg');
-    applyColor('#smBorder', 'border');
-
-// sizing styles
-$('#smFontSize').on('input', function () {
-  const w = getSelected();
-  if (!w) return;
-  w.fontSize = clamp($(this).val(), 8, 32);
-  $(`.sm-widget[data-id='${w.id}']`).css({ fontSize: w.fontSize + 'px' });
-});
-
-$('#smBorderSize').on('input', function () {
-  const w = getSelected();
-  if (!w) return;
-  w.borderSize = clamp($(this).val(), 0, 10);
-  $(`.sm-widget[data-id='${w.id}']`).css({ borderWidth: w.borderSize + 'px' });
-});
-
-$('#smRadius').on('input', function () {
-  const w = getSelected();
-  if (!w) return;
-  w.radius = clamp($(this).val(), 0, 30);
-  $(`.sm-widget[data-id='${w.id}']`).css({ borderRadius: w.radius + 'px' });
-});
-
-
-    // device background
-    $('#smCanvasBg').on('input', function () {
-      state.device.bg = $(this).val();
-      $('#smCanvas').css({ background: state.device.bg || '#05070d' });
-    });
-
-
-// zoom (visual only)
-$('#smZoom').on('change', function () {
-  const z = parseFloat($(this).val() || '1');
-  $('#smCanvas').css('zoom', z);
-});
-
-    // icon picker
-    $('#smIconSearch').on('input', function () {
-      const w = getSelected();
-      if (!w || w.type !== 'action') return;
-      const v = $(this).val();
-      w.icon = v;
-      filterIconPick(v);
-      syncIconPickSelection(v);
+      const v = parseInt($(this).val() || '14', 10);
+      w.iconSize = Math.max(8, Math.min(64, v));
       renderCanvas();
       setSelection(w.id);
     });
 
-    $('#smIconPick').on('change', function () {
+    // command picker (modal)
+    $('#smPickCommand').on('click', function (e) {
+      e.preventDefault();
       const w = getSelected();
       if (!w || w.type !== 'action') return;
-      const v = $(this).val();
-      w.icon = v;
-      $('#smIconSearch').val(v);
-      renderCanvas();
-      setSelection(w.id);
+      openCommandModal(w);
     });
 
+$('#smGridToggle').prop('checked', !!state.snap);
   }
 
-  function ensureCanvasSizing() {
-    const $c = $('#smCanvas');
-    $c.css({ width: DEVICE_W, height: DEVICE_H, background: state.device.bg || '#05070d' });
-    $('.sm-grid').toggle(!!state.snap);
-    $('#smGridToggle').prop('checked', !!state.snap);
+  async 
+// --- Command modal helpers (BigButtons-like) ---
+function openCommandModal(w) {
+  // populate command dropdown
+  const $sel = $('#smCmdSelect');
+  $sel.empty();
+  (state.commands || []).forEach(c => {
+    const name = c.name || c.command || '';
+    if (!name) return;
+    const opt = $('<option/>').attr('value', name).text(c.description ? `${c.description}` : name);
+    opt.data('cmd', c);
+    $sel.append(opt);
+  });
+
+  // select current
+  if (w.command) $sel.val(w.command);
+
+  rebuildCmdArgsUI(w);
+
+  $sel.off('change').on('change', function () {
+    w.command = $(this).val();
+    w.args = w.args || {};
+    rebuildCmdArgsUI(w);
+  });
+
+  $('#smCmdDone').off('click').on('click', function () {
+    // read args from ui
+    const args = {};
+    $('#smCmdArgs [data-arg]').each(function () {
+      const key = $(this).data('arg');
+      if ($(this).attr('type') === 'checkbox') {
+        args[key] = $(this).is(':checked') ? 1 : 0;
+      } else {
+        args[key] = $(this).val();
+      }
+    });
+    // prune empty
+    Object.keys(args).forEach(k => {
+      if (args[k] === '' || args[k] === null || typeof args[k] === 'undefined') delete args[k];
+    });
+    w.args = args;
+
+    // update display + hidden fields
+    $('#smCommandDisplay').val(prettyCommandLabel(w.command, w.args));
+    $('#smCommand').val(w.command || '');
+    $('#smCommandArgsJson').val(JSON.stringify(w.args || {}));
+
+    $('#smCmdModal').modal('hide');
+    renderCanvas();
+    setSelection(w.id);
+  });
+
+  // set display
+  $('#smCommandDisplay').val(prettyCommandLabel(w.command, w.args));
+  $('#smCmdModal').modal('show');
+}
+
+function prettyCommandLabel(cmd, args) {
+  if (!cmd) return '';
+  if (cmd.toLowerCase().includes('playlist') && args && args.playlist) {
+    return `${cmd} (${args.playlist})`;
+  }
+  return cmd;
+}
+
+function rebuildCmdArgsUI(w) {
+  const cmd = (w.command || '').toLowerCase();
+  const $a = $('#smCmdArgs');
+  $a.empty();
+
+  // Start Playlist - mimic FPP modal fields
+  if (cmd.includes('start') && cmd.includes('playlist')) {
+    const pl = (w.args && w.args.playlist) ? w.args.playlist : '';
+    $a.append(`
+      <div class="form-group row">
+        <label class="col-sm-3 col-form-label">Multisync:</label>
+        <div class="col-sm-9"><input type="checkbox" data-arg="multisync" ${w.args && w.args.multisync ? 'checked':''}></div>
+      </div>
+      <div class="form-group row">
+        <label class="col-sm-3 col-form-label">Playlist Name:</label>
+        <div class="col-sm-9"><select class="form-control" data-arg="playlist" id="smCmdPlaylist"></select></div>
+      </div>
+      <div class="form-group row">
+        <label class="col-sm-3 col-form-label">Repeat:</label>
+        <div class="col-sm-9"><input type="checkbox" data-arg="repeat" ${w.args && w.args.repeat ? 'checked':''}></div>
+      </div>
+      <div class="form-group row">
+        <label class="col-sm-3 col-form-label">If Not Running:</label>
+        <div class="col-sm-9"><input type="checkbox" data-arg="ifNotRunning" ${w.args && w.args.ifNotRunning ? 'checked':''}></div>
+      </div>
+    `);
+
+    // fill playlist list
+    const $pl = $('#smCmdPlaylist');
+    $pl.empty();
+    (state.playlists || []).forEach(p => {
+      const name = p.name || p.playlist || p;
+      if (!name) return;
+      $pl.append($('<option/>').attr('value', name).text(name));
+    });
+    if (pl) $pl.val(pl);
+    return;
   }
 
-  async function init() {
+  // Generic arg input
+  $a.append(`
+    <div class="form-group row">
+      <label class="col-sm-3 col-form-label">Arg (optional):</label>
+      <div class="col-sm-9"><input class="form-control" data-arg="arg" value="${escapeHtml((w.args && w.args.arg) || '')}" placeholder="Optional argument" /></div>
+    </div>
+  `);
+}
+
+function init() {
     ensureCanvasSizing();
 
     // snap/grid toggle

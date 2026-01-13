@@ -344,3 +344,28 @@
 .sm-row2 .sm-field{ flex:1; }
 
 .sm-cmdArgs{ margin-top: 6px; }
+
+
+/* Zoom slider */
+.sm-zoomSlider{ width:160px; vertical-align:middle; margin:0 8px; }
+.sm-zoomLabel{ min-width:70px; display:inline-block; color:#cfefff; font-size:12px; }
+
+/* Make color inputs + checkbox consistent in toolbar */
+.sm-canvasTools input[type="color"]{ width:34px; height:34px; padding:0; border-radius:8px; border:1px solid rgba(255,255,255,.15); background:transparent; }
+.sm-check{ display:inline-flex; align-items:center; gap:8px; }
+.sm-check input{ width:18px; height:18px; }
+
+/* 3-up color row */
+.sm-colorRow3{ display:flex; gap:10px; }
+.sm-colorRow3 .sm-field{ flex:1; }
+.sm-field input[type="color"]{ width:100%; height:34px; }
+
+/* Icon modal grid */
+.sm-iconGrid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(42px, 1fr)); gap:10px; margin-top:12px; max-height:70vh; overflow:auto; }
+.sm-iconBtn{ border:1px solid rgba(0,0,0,.15); border-radius:10px; background:#fff; height:42px; display:flex; align-items:center; justify-content:center; }
+.sm-iconBtn:hover{ background:#f2f2f2; }
+.sm-iconBtn i{ font-size:18px; color:#111; }
+
+/* Command/Modal tweaks to match FPP look */
+.modal .modal-header{ border-bottom:1px solid rgba(0,0,0,.08); }
+.modal .modal-title{ font-weight:700; }

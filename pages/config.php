@@ -34,13 +34,8 @@
           <input id="smCanvasBg" type="color" value="#0b1020" title="Canvas background" />
           <label class="sm-check"><input id="smGridToggle" type="checkbox" checked /> Snap</label>
           <span class="sm-toolLabel sm-ml">Zoom</span>
-          <select id="smZoom" class="sm-zoom">
-            <option value="1" selected>100%</option>
-            <option value="1.5">150%</option>
-            <option value="2">200%</option>
-            <option value="2.5">250%</option>
-            <option value="3">300%</option>
-          </select>
+          <input id="smZoom" class="sm-zoomSlider" type="range" min="0" max="300" step="25" value="200" />
+          <span id="smZoomLabel" class="sm-zoomLabel">200%</span>
         </div>
       </div>
       <div id="smCanvas" class="sm-canvas" aria-label="Showmaster canvas">
@@ -90,7 +85,7 @@
         <div class="sm-divider"></div>
 
 
-        <div class="sm-colorRow">
+        <div class="sm-colorRow sm-colorRow3">
           <div class="sm-field">
             <label>Bg</label>
             <input id="smBg" type="color" />
@@ -99,10 +94,10 @@
             <label>Text</label>
             <input id="smFg" type="color" />
           </div>
-        </div>
-        <div class="sm-field">
-          <label>Border</label>
-          <input id="smBorder" type="color" />
+          <div class="sm-field">
+            <label>Border</label>
+            <input id="smBorder" type="color" />
+          </div>
         </div>
 
         <div class="sm-row2">
@@ -126,32 +121,18 @@
             <label>Label</label>
             <input id="smLabel" maxlength="40" />
           </div>
-          <div class="sm-field">
+                  <div class="sm-field">
             <label>Command</label>
-            <select id="smCommand"></select>
-          </div>
-
-          <div id="smCmdArgs" class="sm-cmdArgs">
-            <div class="sm-field" id="smPlaylistField" style="display:none">
-              <label>Playlist</label>
-              <select id="smPlaylist"></select>
-            </div>
-            <div class="sm-field" id="smArgField" style="display:none">
-              <label>Arg (optional)</label>
-              <input id="smArg" placeholder="e.g. effect name, or JSON" maxlength="120" />
-            </div>
-          </div>
-
-
-          <div class="sm-field">
-            <label>Icon</label>
             <div class="sm-iconRow">
-              <input id="smIconSearch" placeholder="Search icon (e.g. play, power-off)" maxlength="32" />
-              <select id="smIconPick"></select>
+              <input id="smCommandDisplay" placeholder="Choose a command..." readonly />
+              <button class="buttons btn-outline-light" id="smPickCommand" type="button">Choose…</button>
             </div>
-            <div class="sm-iconHint">Uses Font Awesome icon names. Stored as plain name (e.g. <code>play</code>).</div>
           </div>
-        </div>
+
+          <input type="hidden" id="smCommand" />
+          <input type="hidden" id="smCommandArgsJson" />
+
+</div>
 
         <div id="smStatusFields">
           <div class="sm-field">
@@ -177,3 +158,51 @@
 
 <script src="plugin.php?plugin=showmaster&file=js/fa-icons.js&nopage=1"></script>
 <script src="plugin.php?plugin=showmaster&file=js/builder.js&nopage=1"></script>
+
+
+<!-- Icon Picker Modal -->
+<div class="modal fade" id="smIconModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-xl" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title">Select an Icon</h4>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <input id="smIconModalSearch" class="form-control" placeholder="Find an Icon" />
+        <div id="smIconGrid" class="sm-iconGrid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Command Picker Modal -->
+<div class="modal fade" id="smCmdModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title">Command for Button</h4>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-horizontal">
+          <div class="form-group row">
+            <label class="col-sm-3 col-form-label">Command:</label>
+            <div class="col-sm-9">
+              <select id="smCmdSelect" class="form-control"></select>
+            </div>
+          </div>
+
+          <div id="smCmdArgs"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="smCmdDone" type="button" class="buttons btn-success">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
