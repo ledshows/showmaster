@@ -8,7 +8,8 @@
 
   var state = {
     device: { w: DEVICE_W, h: DEVICE_H, bg: "#0b0f14" },
-    widgets: [],
+    pages: [],            // [{id,name,h,widgets:[]}]
+    activePageId: null,
     commands: [],
     playlists: [],
     selectedId: null,
@@ -38,16 +39,67 @@
     setTimeout(function(){ $t.fadeOut(250); }, 2600);
   }
 
-  function widgetById(id) {
-    for (var i=0;i<state.widgets.length;i++) if (state.widgets[i].id === id) return state.widgets[i];
+  
+  function currentPage() {
+    if (!state.pages || !state.pages.length) return null;
+    for (var i=0;i<state.pages.length;i++) if (state.pages[i].id === state.activePageId) return state.pages[i];
+    return state.pages[0];
+  }
+  function currentWidgets() {
+    var p = currentPage();
+    return p ? (p.widgets || []) : [];
+  }
+  function setActivePage(id) {
+    state.activePageId = id;
+    state.selectedId = null;
+    highlightSelection(null);
+    renderPageTabs();
+    ensurePages();
+    renderPageTabs();
+    try { $('#smPageHeight').val(currentPage().h || DEVICE_H); } catch(e) {}
+    renderCanvas();
+    renderProps();
+  }
+  function ensurePages() {
+    if (!state.pages) state.pages = [];
+    if (!state.pages.length) {
+      var pid = "p1";
+      state.pages.push({ id: pid, name: "Page 1", h: DEVICE_H, widgets: [] });
+      state.activePageId = pid;
+    }
+    if (!state.activePageId) state.activePageId = state.pages[0].id;
+  }
+function widgetById(id) {
+    var ws = currentWidgets();
+    for (var i=0;i<ws.length;i++) {
+      if (ws[i].id === id) return ws[i];
+    }
     return null;
   }
+  function duplicateSelected() {
+    var w = widgetById(state.selectedId);
+    if (!w) return;
+    var pg = currentPage();
+    if (!pg) return;
+    var clone = $.extend(true, {}, w);
+    clone.id = uid(w.type || "widget");
+    clone.x = clamp((clone.x || 0) + GRID, 0, DEVICE_W - 10);
+    clone.y = clamp((clone.y || 0) + GRID, 0, (pg.h || DEVICE_H) - 10);
+    (pg.widgets || (pg.widgets = [])).push(clone);
+    setSelection(clone.id, true);
+  }
+
+
 
   function normalizeWidget(w) {
+    ensurePages();
+    var pg = currentPage();
+    var ph = toInt(pg && pg.h ? pg.h : DEVICE_H, DEVICE_H);
+    if (ph < DEVICE_H) ph = DEVICE_H;
     w.x = clamp(w.x, 0, DEVICE_W - 1);
-    w.y = clamp(w.y, 0, DEVICE_H - 1);
+    w.y = clamp(w.y, 0, ph - 1);
     w.w = clamp(w.w, 10, DEVICE_W);
-    w.h = clamp(w.h, 10, DEVICE_H);
+    w.h = clamp(w.h, 10, ph);
     if (!w.bg) w.bg = (w.type === "action") ? "#0ea5e9" : "rgba(255,255,255,0.06)";
     if (!w.text) w.text = "#eaf2ff";
     if (!w.border) w.border = "#22d3ee";
@@ -64,9 +116,21 @@
 
   // -------- rendering --------
   function ensureCanvasSizing() {
+    ensurePages();
     var s = getScale();
     var cw = Math.round(DEVICE_W * s);
-    var ch = Math.round(DEVICE_H * s);
+    var vh = Math.round(DEVICE_H * s);
+
+    var pg = currentPage();
+    var ph = toInt(pg && pg.h ? pg.h : DEVICE_H, DEVICE_H);
+    if (ph < DEVICE_H) ph = DEVICE_H;
+    var ch = Math.round(ph * s);
+
+    // Viewport stays device-sized; inner canvas can be taller for scroll pages.
+    if ($("#smCanvasViewport").length) {
+      $("#smCanvasViewport").css({ width: cw + "px", height: vh + "px" });
+    }
+
     // Resize the canvas itself (no CSS transforms) so jQueryUI drag behaves correctly.
     $("#smCanvas").css({ width: cw + "px", height: ch + "px" });
 
@@ -74,12 +138,6 @@
     try {
       document.getElementById("smCanvas").style.setProperty("--smCanvasBg", state.device.bg || "#070a12");
     } catch(e) {}
-
-    // Scale grid overlay with zoom.
-    $("#smCanvas .sm-grid").css("background-size", (GRID*s) + "px " + (GRID*s) + "px");
-
-    // Label
-    $("#smZoomLabel").text(getZoomPercent() === 100 ? "Original size" : (getZoomPercent() + "%"));
   }
 
 
@@ -104,6 +162,10 @@
 
   function widgetText(w) {
     if (w.type === "status") return prettySource(w.source);
+    if (w.type === "tab") {
+      var iconT = w.icon ? ("<i class=\'fa fa-" + esc(w.icon) + "\' style=\'font-size:" + (w.iconSize||14) + "px\'></i> ") : "";
+      return iconT + "<span>" + esc(w.label || "Tab") + "</span>";
+    }
     // action: icon + label
     var icon = w.icon ? ("<i class='fa fa-" + esc(w.icon) + "' style='font-size:" + (w.iconSize||14) + "px'></i> ") : "";
     return icon + "<span>" + esc(w.label || "") + "</span>";
@@ -125,11 +187,12 @@
     }
     $c.find('.sm-grid').css('display', state.snap ? 'block' : 'none');
 
-    for (var i=0;i<state.widgets.length;i++) {
-      var w = normalizeWidget(state.widgets[i]);
+    var ws = currentWidgets();
+    for (var i=0;i<ws.length;i++) {
+      var w = normalizeWidget(ws[i]);
       var $el = $("<div class='sm-widget'><div class='sm-inner'></div></div>");
       $el.attr('data-type', w.type);
-      if (w.id === state.selectedId) $el.addClass("sm-selected");
+      if (w.id === state.selectedId) $el.addClass('selected');
       $el.find('.sm-inner').html(widgetText(w));
       applyWidgetCss($el, w);
       $c.append($el);
@@ -139,7 +202,32 @@
     }
   }
 
-  function makeInteractive($el, w) {
+  
+  function renderPageTabs() {
+    ensurePages();
+    var $t = $("#smPageTabs");
+    if (!$t.length) return;
+    $t.empty();
+    for (var i=0;i<state.pages.length;i++) {
+      (function(pg){
+        var $b = $("<div class='sm-pageTab'></div>");
+        $b.text(pg.name || ("Page " + (i+1)));
+        if (pg.id === state.activePageId) $b.addClass("active");
+        $b.on("click", function(){ setActivePage(pg.id); });
+        $t.append($b);
+      })(state.pages[i]);
+    }
+    try { $("#smPageHeight").val(currentPage().h || DEVICE_H); } catch(e) {}
+  }
+
+  function addPage() {
+    ensurePages();
+    var pid = "p" + (new Date().getTime());
+    state.pages.push({ id: pid, name: "Page " + state.pages.length, h: DEVICE_H, widgets: [] });
+    setActivePage(pid);
+  }
+
+function makeInteractive($el, w) {
     var s = getScale();
 
     $el.off("mousedown").on("mousedown", function(e){
@@ -206,8 +294,8 @@
 
   function highlightSelection(id){
     try{
-      $('#smCanvas .sm-widget').removeClass('sm-selected');
-      if(id){ $('#smCanvas .sm-widget[data-id="'+id+'"]').addClass('sm-selected'); }
+      $('#smCanvas .sm-widget').removeClass('sm-selected selected');
+      if(id){ $('#smCanvas .sm-widget[data-id="'+id+'"]').addClass('sm-selected selected'); }
     }catch(e){}
   }
 
@@ -249,14 +337,33 @@
     $("#smActionFields").toggle(w.type === "action");
     $("#smStatusFields").toggle(w.type === "status");
 
+    var $cmdField = $("#smPickCommand").closest(".sm-field");
+    var $tabField = $(".sm-tabOnly");
     if (w.type === "action") {
+      if ($cmdField.length) $cmdField.show();
+      if ($tabField.length) $tabField.hide();
       $("#smLabel").val(w.label || "");
       $("#smIconValue").val(w.icon || "");
       $("#smIconSize").val(w.iconSize || 14);
       $("#smCommandDisplay").val(w.command ? w.command : "");
       $("#smCommand").val(w.command || "");
       $("#smCommandArgsJson").val(w.args ? JSON.stringify(w.args) : "{}");
+    } else if (w.type === "tab") {
+      if ($cmdField.length) $cmdField.hide();
+      if ($tabField.length) $tabField.show();
+      $("#smLabel").val(w.label || "Tab");
+      $("#smIconValue").val(w.icon || "columns");
+      $("#smIconSize").val(w.iconSize || 14);
+      // fill target pages
+      var $tp = $("#smTargetPage"); $tp.empty();
+      for (var i=0;i<state.pages.length;i++) {
+        var pg = state.pages[i];
+        $tp.append("<option value='" + esc(pg.id) + "'>" + esc(pg.name || pg.id) + "</option>");
+      }
+      $tp.val(w.targetPageId || state.activePageId);
     } else {
+      if ($cmdField.length) $cmdField.hide();
+      if ($tabField.length) $tabField.hide();
       $("#smSource").val(w.source || "player.statusText");
     }
   }
@@ -293,7 +400,7 @@
     });
 
     $("#smLabel").off("input change").on("input change", function(){
-      var w = widgetById(state.selectedId); if (!w || w.type!=="action") return;
+      var w = widgetById(state.selectedId); if (!w || (w.type!=="action" && w.type!=="tab")) return;
       w.label = $(this).val();
       renderCanvas(); renderProps();
     });
@@ -305,10 +412,16 @@
     });
 
     $("#smIconSize").off("input change").on("input change", function(){
-      var w = widgetById(state.selectedId); if (!w || w.type!=="action") return;
+      var w = widgetById(state.selectedId); if (!w || (w.type!=="action" && w.type!=="tab")) return;
       w.iconSize = clamp(toInt($(this).val(), 14), 8, 64);
       renderCanvas(); renderProps();
     });
+    $("#smTargetPage").off("change").on("change", function(){
+      var w = widgetById(state.selectedId); if (!w || w.type!=="tab") return;
+      w.targetPageId = $(this).val();
+      renderCanvas(); renderProps();
+    });
+
 
     $("#smPickIcon").off("click").on("click", function(e){
       e.preventDefault();
@@ -317,7 +430,7 @@
 
     $("#smClearIcon").off("click").on("click", function(e){
       e.preventDefault();
-      var w = widgetById(state.selectedId); if (!w || w.type!=="action") return;
+      var w = widgetById(state.selectedId); if (!w || (w.type!=="action" && w.type!=="tab")) return;
       w.icon = "";
       renderCanvas(); renderProps();
     });
@@ -330,10 +443,37 @@
     $("#smDelete").off("click").on("click", function(){
       var id = state.selectedId;
       if (!id) return;
-      state.widgets = $.grep(state.widgets, function(x){ return x.id !== id; });
+      var pg = currentPage();
+      pg.widgets = $.grep(pg.widgets || [], function(x){ return x.id !== id; });
       state.selectedId = null;
+      highlightSelection(null);
       renderCanvas(); renderProps();
     });
+
+    $("#smCopy").off("click").on("click", function(e){ e.preventDefault(); duplicateSelected(); });
+
+    // Modal close failsafe (Bootstrap 4/5 or no-bootstrap environments)
+    $(document).off("click.smModalClose").on("click.smModalClose",
+      "#smIconModal [data-dismiss=\"modal\"], #smIconModal [data-bs-dismiss=\"modal\"], #smIconModal .close, " +
+      "#smCmdModal [data-dismiss=\"modal\"], #smCmdModal [data-bs-dismiss=\"modal\"], #smCmdModal .close",
+      function(e){
+        e.preventDefault();
+        var $m = $(this).closest(".modal");
+        try {
+          if ($m.modal) { $m.modal("hide"); }
+          else if (window.bootstrap && window.bootstrap.Modal) {
+            var el = $m.get(0);
+            var inst = window.bootstrap.Modal.getInstance(el) || new window.bootstrap.Modal(el);
+            inst.hide();
+          }
+        } catch(err) {}
+        // hard fallback
+        $m.removeClass("show").hide();
+        $(".modal-backdrop").remove();
+        $("body").removeClass("modal-open").css("padding-right", "");
+      }
+    );
+
   }
 
   // -------- icon modal --------
@@ -358,7 +498,7 @@
   function openIconModal() {
     $("#smIconFind").val("");
     renderIconGrid(allIcons());
-    $("#smIconModal").modal("show");
+    try { if ($("#smIconModal").modal) { $("#smIconModal").modal("show"); } else if (window.bootstrap && window.bootstrap.Modal) { (window.bootstrap.Modal.getInstance(document.getElementById("smIconModal")) || new window.bootstrap.Modal(document.getElementById("smIconModal"))).show(); } } catch(e) {}
   }
 
   function renderIconGrid(list) {
@@ -377,10 +517,10 @@
     $g.find("button").off("click").on("click", function(){
       var icon = $(this).attr("data-icon");
       var w2 = widgetById(state.selectedId);
-      if (!w2 || w2.type!=="action") return;
+      if (!w2 || (w2.type!=="action" && w2.type!=="tab")) return;
       w2.icon = icon;
-      $("#smIcon").val(icon);
-      $("#smIconModal").modal("hide");
+      $("#smIconValue").val(icon);
+      try { if ($("#smIconModal").modal) { $("#smIconModal").modal("hide"); } else if (window.bootstrap && window.bootstrap.Modal) { (window.bootstrap.Modal.getInstance(document.getElementById("smIconModal")) || new window.bootstrap.Modal(document.getElementById("smIconModal"))).hide(); } } catch(e) {}
       renderCanvas(); renderProps();
     });
   }
@@ -388,7 +528,7 @@
   // -------- command modal --------
   function openCommandModal() {
     var w = widgetById(state.selectedId);
-    if (!w || w.type!=="action") return;
+    if (!w || (w.type!=="action" && w.type!=="tab")) return;
 
     var $sel = $("#smCmdSelect"); $sel.empty();
     $sel.append("<option value='' disabled>Select a Command</option>");
@@ -434,11 +574,11 @@
       w.args.repeat = $("#smCmdRepeat").is(":checked");
       w.args.ifNotRunning = $("#smCmdIfNotRunning").is(":checked");
       w.args.playlist = $("#smCmdPlaylist").val() || "";
-      $("#smCmdModal").modal("hide");
+      try { if ($("#smCmdModal").modal) { $("#smCmdModal").modal("hide"); } else if (window.bootstrap && window.bootstrap.Modal) { (window.bootstrap.Modal.getInstance(document.getElementById("smCmdModal")) || new window.bootstrap.Modal(document.getElementById("smCmdModal"))).hide(); } } catch(e) {}
       renderProps();
     });
 
-    $("#smCmdModal").modal("show");
+    try { if ($("#smCmdModal").modal) { $("#smCmdModal").modal("show"); } else if (window.bootstrap && window.bootstrap.Modal) { (window.bootstrap.Modal.getInstance(document.getElementById("smCmdModal")) || new window.bootstrap.Modal(document.getElementById("smCmdModal"))).show(); } } catch(e) {}
   }
 
   function updateCmdRows() {
@@ -473,35 +613,70 @@
 
   // -------- add widgets --------
   function addAction() {
+    ensurePages();
+    var pg = currentPage();
     var w = normalizeWidget({
       id: uid("action"),
       type: "action",
-      x: 10, y: 10, w: 120, h: 44,
+      x: Math.round((DEVICE_W - 120) / 2), y: Math.round((DEVICE_H - 44) / 2),
+      w: 120, h: 44,
       label: "Start Show",
       icon: "play",
-      command: ""
+      iconSize: 24,
+      textSize: 14,
+      command: "",
+      args: {}
     });
-    state.widgets.push(w);
+    (pg.widgets || (pg.widgets=[])).push(w);
     setSelection(w.id, true);
   }
   function addStatus() {
+    ensurePages();
+    var pg = currentPage();
     var w = normalizeWidget({
       id: uid("status"),
       type: "status",
-      x: 10, y: 70, w: 150, h: 28,
-      source: "player.statusText"
+      x: Math.round((DEVICE_W - 140) / 2), y: Math.round((DEVICE_H - 44) / 2),
+      w: 140, h: 44,
+      source: "player.statusText",
+      textSize: 14
     });
-    state.widgets.push(w);
+    (pg.widgets || (pg.widgets=[])).push(w);
+    setSelection(w.id, true);
+  }
+  function addTab() {
+    ensurePages();
+    var pg = currentPage();
+    var tgt = (state.pages.length > 1) ? state.pages[1].id : state.pages[0].id;
+    var w = normalizeWidget({
+      id: uid("tab"),
+      type: "tab",
+      x: Math.round((DEVICE_W - 120) / 2), y: Math.round((DEVICE_H - 44) / 2),
+      w: 120, h: 44,
+      label: "Tab",
+      icon: "columns",
+      iconSize: 22,
+      textSize: 14,
+      targetPageId: tgt
+    });
+    (pg.widgets || (pg.widgets=[])).push(w);
     setSelection(w.id, true);
   }
 
+
   // -------- save/load/push --------
   function exportConfig() {
-    var out = { device: { w: DEVICE_W, h: DEVICE_H, bg: state.device.bg }, widgets: [] };
-    for (var i=0;i<state.widgets.length;i++) {
-      var w = normalizeWidget($.extend({}, state.widgets[i]));
-      // do not include internal selection state
-      out.widgets.push(w);
+    ensurePages();
+    var out = { device: { w: DEVICE_W, h: DEVICE_H, bg: state.device.bg }, pages: [], activePageId: state.activePageId };
+    for (var p=0;p<state.pages.length;p++) {
+      var pg = state.pages[p];
+      var pgOut = { id: pg.id, name: pg.name, h: pg.h || DEVICE_H, widgets: [] };
+      var ws = pg.widgets || [];
+      for (var i=0;i<ws.length;i++) {
+        var w = normalizeWidget($.extend({}, ws[i]));
+        pgOut.widgets.push(w);
+      }
+      out.pages.push(pgOut);
     }
     return out;
   }
@@ -509,9 +684,22 @@
   function loadConfig(obj) {
     if (!obj) return;
     if (obj.device && obj.device.bg) state.device.bg = obj.device.bg;
-    state.widgets = obj.widgets || [];
+
+    // Backward compatibility: older configs stored a single widgets[] array.
+    if (obj.pages && obj.pages.length) {
+      state.pages = obj.pages;
+      state.activePageId = obj.activePageId || (state.pages[0] ? state.pages[0].id : null);
+    } else {
+      var pid = "p1";
+      state.pages = [{ id: pid, name: "Page 1", h: DEVICE_H, widgets: (obj.widgets || []) }];
+      state.activePageId = pid;
+    }
+
+    ensurePages();
     state.selectedId = null;
-    $("#smCanvasBg").val(state.device.bg);
+$("#smCanvasBg").val(state.device.bg);
+    $("#smPageHeight").val(currentPage().h || DEVICE_H);
+    renderPageTabs();
     renderCanvas(); renderProps();
   }
 
@@ -577,6 +765,23 @@
   function wireUi() {
     fillSources();
 
+    // Bootstrap 4/5 modal close failsafe (FPP can ship with either)
+    $(document).off("click.smModalClose").on("click.smModalClose", "#smIconModal .close, #smCmdModal .close, #smIconModal [data-bs-dismiss='modal'], #smCmdModal [data-bs-dismiss='modal']", function(e){
+      e.preventDefault();
+      var $m = $(this).closest(".modal");
+      if (!$m.length) return;
+      try {
+        if ($m.modal) { $m.modal("hide"); return; }
+      } catch(ex) {}
+      try {
+        if (window.bootstrap && window.bootstrap.Modal) {
+          var inst = window.bootstrap.Modal.getInstance($m[0]) || new window.bootstrap.Modal($m[0]);
+          inst.hide();
+        }
+      } catch(ex2) {}
+    });
+
+
     // Clicking empty canvas clears selection (do not re-render on mousedown).
     $("#smCanvas").off("click").on("click", function(e){
       if ($(e.target).closest('.sm-widget').length) return;
@@ -587,6 +792,15 @@
 
     $("#smAddAction").off("click").on("click", function(e){ e.preventDefault(); addAction(); });
     $("#smAddStatus").off("click").on("click", function(e){ e.preventDefault(); addStatus(); });
+    $("#smAddTab").off("click").on("click", function(e){ e.preventDefault(); addTab(); });
+    $("#smAddPage").off("click").on("click", function(e){ e.preventDefault(); addPage(); });
+    $("#smPageHeight").off("change").on("change", function(){
+      var pg = currentPage();
+      var h = toInt($(this).val(), DEVICE_H);
+      if (h < DEVICE_H) h = DEVICE_H;
+      pg.h = h;
+      renderCanvas();
+    });
 
     $("#smSave").off("click").on("click", function(){
       var cfg = exportConfig();
@@ -632,13 +846,16 @@
     $("#smCanvasBg").val(state.device.bg);
     $("#smGridToggle").prop("checked", state.snap);
     $("#smZoom").val(state.zoom);
+    ensurePages();
+    renderPageTabs();
+    try { $('#smPageHeight').val(currentPage().h || DEVICE_H); } catch(e) {}
     renderCanvas();
     renderProps();
 
     // fetch data then load config
     $.when(apiFetchCommands(), apiFetchPlaylists()).always(function(){
       apiGetConfig().done(function(cfg){
-        if (cfg && cfg.widgets) loadConfig(cfg);
+        if (cfg) loadConfig(cfg);
       });
     });
   }

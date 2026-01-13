@@ -392,42 +392,28 @@
 .sm-modalTools{margin-bottom:10px;}
 .smIconGrid{display:flex;flex-wrap:wrap;gap:6px;max-height:60vh;overflow:auto;padding:6px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(0,0,0,.25);}
 
-/* Icon picker modal */
-#smIconModal .modal-body {
-  padding: 10px 14px;
-}
 
-#smIconGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
-  gap: 10px;
-  max-height: 70vh;
-  overflow: auto;
-  padding: 10px 0;
-}
+/* ---- v2.5.2 UX fixes ---- */
+.smIconTile{width:84px !important;height:84px !important;border-radius:16px !important;margin:6px !important;}
+.smIconTile i{font-size:44px !important;line-height:1 !important;}
+.smIconTile::after{content:none !important;display:none !important;}
+.smIconGrid{max-height:65vh !important;overflow:auto !important;padding:10px !important;gap:10px !important;}
 
-.sm-icon-tile {
-  width: 64px;
-  height: 64px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.12);
-  cursor: pointer;
-  user-select: none;
-}
+/* Resize handles only on selected widget */
+.sm-widget .ui-resizable-handle{display:none !important;}
+.sm-widget.selected .ui-resizable-handle{display:block !important;}
+.sm-widget:not(.selected) .sm-handle{display:none !important;}
+.sm-widget.selected .sm-handle{display:block !important;}
 
-.sm-icon-tile:hover {
-  background: rgba(255,255,255,0.10);
-  border-color: rgba(0,255,255,0.35);
-}
+/* Pages / tabs */
+.sm-pagesBar{display:flex;align-items:center;gap:10px;margin:10px 0;}
+.sm-pageTabs{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+.sm-pageTab{border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:rgba(255,255,255,.9);border-radius:10px;padding:6px 10px;font-size:12px;cursor:pointer;user-select:none;}
+.sm-pageTab.active{border-color:rgba(0,229,255,.55);box-shadow:0 0 0 2px rgba(0,229,255,.15) inset;}
+.sm-addPage{width:34px;height:34px;padding:0;border-radius:10px;line-height:1;font-weight:700;}
+.sm-pageSettings{display:flex;align-items:center;gap:8px;margin-left:auto;}
+.sm-pageLabel{font-size:12px;opacity:.75;margin:0;}
+.sm-pageHeight{width:84px;}
 
-.sm-icon-tile i {
-  font-size: 30px;  /* groter icoon */
-  line-height: 1;
-}
-
-/* verberg eventuele tekstlabels onder icons */
-.sm-icon-label { display: none !important; }
+/* Scrollable viewport */
+.sm-canvasViewport{overflow:auto;max-width:100%;border-radius:18px;}

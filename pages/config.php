@@ -16,6 +16,7 @@
     <div class="sm-actions">
       <button class="buttons btn-outline-light" id="smAddAction">+ Action</button>
       <button class="buttons btn-outline-light" id="smAddStatus">+ Status</button>
+      <button class="buttons btn-outline-light" id="smAddTab">+ Tab</button>
       <button class="buttons btn-success" id="smSave">Save</button>
       <button class="buttons btn-outline-light" id="smLoad">Load</button>
       <div class="sm-upload">
@@ -38,8 +39,19 @@
           <span id="smZoomLabel" class="sm-zoomLabel">200%</span>
         </div>
       </div>
-      <div id="smCanvas" class="sm-canvas" aria-label="Showmaster canvas">
+      
+      <div class="sm-pagesBar">
+        <div id="smPageTabs" class="sm-pageTabs"></div>
+        <button id="smAddPage" class="btn btn-outline-light btn-sm sm-addPage" type="button" title="Add page">+</button>
+        <div class="sm-pageSettings">
+          <label class="sm-pageLabel">Page height</label>
+          <input id="smPageHeight" type="number" class="form-control form-control-sm sm-pageHeight" min="240" step="10" value="240" />
+        </div>
+      </div>
+      <div id="smCanvasViewport" class="sm-canvasViewport">
+<div id="smCanvas" class="sm-canvas" aria-label="Showmaster canvas">
         <div class="sm-grid"></div>
+      </div>
       </div>
       <div class="sm-hint">
         Tip: click a widget to edit • drag inside canvas • resize from corners • Del to remove
@@ -49,6 +61,7 @@
     <div class="sm-props">
       <div class="sm-propsHeader">
         <div class="sm-propsTitle">Properties</div>
+        <button class="buttons btn-outline-light" id="smCopy" title="Duplicate selected">Copy</button>
         <button class="buttons btn-outline-light" id="smDelete" title="Delete selected">Delete</button>
       </div>
 
@@ -129,6 +142,11 @@
             </div>
           </div>
 
+          <div class="sm-field sm-tabOnly" style="display:none">
+            <label>Target Page</label>
+            <select id="smTargetPage"></select>
+          </div>
+
           <input type="hidden" id="smCommand" />
           <input type="hidden" id="smCommandArgsJson" />
 
@@ -182,7 +200,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h4 class="modal-title">Select an Icon</h4>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+        <button type="button" class="close btn-close" data-dismiss="modal" data-bs-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
@@ -202,7 +220,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h4 class="modal-title">Command for Button</h4>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+        <button type="button" class="close btn-close" data-dismiss="modal" data-bs-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
