@@ -859,7 +859,7 @@ function rebuildCmdArgsUI(w) {
   `);
 }
 
-function init() {
+async function init() {
     ensureCanvasSizing();
 
     // snap/grid toggle
@@ -905,5 +905,5 @@ function init() {
   }
 
   // boot
-  $(init);
+  $(function(){ init().catch(function(e){ console.error(e); toast('Init failed: ' + (e && e.message ? e.message : e), true); }); });
 })();

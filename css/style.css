@@ -369,3 +369,9 @@
 /* Command/Modal tweaks to match FPP look */
 .modal .modal-header{ border-bottom:1px solid rgba(0,0,0,.08); }
 .modal .modal-title{ font-weight:700; }
+
+
+/* Zoom slider sizing */
+#smZoomRange{max-width:360px;width:360px;}
+
+.sm-zoom-row{display:flex;align-items:center;gap:10px;}
