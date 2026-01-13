@@ -1,11 +1,12 @@
 /* Showmaster Builder
- * 320x240 drag+resize UI builder for ESP32 remotes
+ * 320x240 drag+resize UI builder for the Showmaster touchscreen
  */
 
 (function () {
   const DEVICE_W = 320;
   const DEVICE_H = 240;
   const CONFIG_FILE = 'plugin.showmaster.json';
+  const GRID = 10;
 
   const STATUS_SOURCES = [
     { id: 'player.statusText', label: 'player.statusText' },
@@ -18,6 +19,7 @@
 
   let state = {
     device: { w: DEVICE_W, h: DEVICE_H, bg: '#05070d' },
+    snap: true,
     widgets: []
   };
 
@@ -120,6 +122,7 @@
       if ($.fn.draggable && $.fn.resizable) {
         $el.draggable({
           containment: 'parent',
+          grid: state.snap ? [GRID, GRID] : false,
           scroll: false,
           start: () => setSelection(w.id),
           drag: (e, ui) => {
@@ -146,6 +149,7 @@
           }
         }).resizable({
           containment: 'parent',
+          grid: state.snap ? [GRID, GRID] : false,
           handles: 'n,e,s,w,ne,se,sw,nw',
           start: () => setSelection(w.id),
           resize: (e, ui) => {
@@ -376,7 +380,7 @@
   }
 
   function toExport() {
-    // Export format expected by ESP32 (no internal ids)
+    // Export format expected by Showmaster (no internal ids)
     return {
       device: { w: DEVICE_W, h: DEVICE_H, bg: state.device.bg || '#05070d' },
       widgets: state.widgets.map(w => {
@@ -588,10 +592,20 @@
   function ensureCanvasSizing() {
     const $c = $('#smCanvas');
     $c.css({ width: DEVICE_W, height: DEVICE_H, background: state.device.bg || '#05070d' });
+    $('.sm-grid').toggle(!!state.snap);
+    $('#smGridToggle').prop('checked', !!state.snap);
   }
 
   async function init() {
     ensureCanvasSizing();
+
+    // snap/grid toggle
+    $('#smGridToggle').on('change', function () {
+      state.snap = !!$(this).is(':checked');
+      $('.sm-grid').toggle(state.snap);
+      renderCanvas();
+      if (selectedId) setSelection(selectedId);
+    });
 
     // click empty canvas clears selection
     $('#smCanvas').on('mousedown', function () {

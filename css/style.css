@@ -42,11 +42,47 @@
   box-shadow:0 0 0 1px rgba(0,229,255,0.12), 0 10px 30px rgba(0,0,0,0.35);
   font-weight:700; letter-spacing:0.5px;
 }
+.sm-logo img{
+  display:block;
+  width:28px;
+  height:28px;
+  object-fit:contain;
+  filter: drop-shadow(0 0 6px rgba(0,229,255,0.25));
+}
 .sm-title{font-size:14px; font-weight:700; line-height:1.1;}
 .sm-subtitle{font-size:12px; color:var(--sm-muted);}
 
 .sm-actions{display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;}
 .sm-upload{display:flex; align-items:center; gap:8px;}
+
+/* FPP uses bootstrap-ish classes, but make the builder buttons consistent on dark backgrounds */
+.sm-wrap .buttons{
+  border-radius:10px;
+  font-size:12px;
+  padding:7px 12px;
+  line-height:1.1;
+}
+.sm-wrap .btn-outline-light{
+  color:var(--sm-text);
+  border:1px solid rgba(255,255,255,0.22);
+  background:rgba(255,255,255,0.04);
+}
+.sm-wrap .btn-outline-light:hover{
+  background:rgba(255,255,255,0.08);
+  border-color:rgba(0,229,255,0.35);
+}
+.sm-wrap .btn-success{
+  border:1px solid rgba(34,197,94,0.5);
+  background:linear-gradient(180deg, rgba(34,197,94,0.95), rgba(34,197,94,0.75));
+  color:#08140b;
+  font-weight:700;
+}
+.sm-wrap .btn-primary{
+  border:1px solid rgba(0,229,255,0.55);
+  background:linear-gradient(180deg, rgba(0,229,255,0.95), rgba(0,229,255,0.65));
+  color:#041017;
+  font-weight:700;
+}
 .sm-ip{
   width:220px; max-width:40vw;
   padding:7px 10px;
@@ -93,9 +129,37 @@
   background-image:
     linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
-  background-size: 20px 20px;
+  background-size: 10px 10px;
   opacity:0.35;
   pointer-events:none;
+}
+
+/* Make FPP buttons readable on the dark header */
+.sm-wrap .buttons{
+  border-radius:10px;
+  font-size:12px;
+  padding:7px 12px;
+  line-height:1.1;
+}
+.sm-wrap .btn-outline-light{
+  color:rgba(255,255,255,0.92) !important;
+  border-color:rgba(255,255,255,0.28) !important;
+  background:rgba(255,255,255,0.04) !important;
+}
+.sm-wrap .btn-outline-light:hover{
+  background:rgba(255,255,255,0.08) !important;
+  border-color:rgba(0,229,255,0.40) !important;
+}
+.sm-wrap .btn-primary{
+  color:#061018 !important;
+  border-color:rgba(0,229,255,0.55) !important;
+  background:linear-gradient(135deg, rgba(0,229,255,0.95), rgba(168,85,247,0.75)) !important;
+  box-shadow:0 0 0 1px rgba(0,229,255,0.10), 0 10px 24px rgba(0,0,0,0.35);
+}
+.sm-wrap .btn-primary:hover{filter:brightness(1.05);}
+.sm-wrap .btn-success{
+  background:linear-gradient(135deg, rgba(34,197,94,0.95), rgba(34,197,94,0.70)) !important;
+  border-color:rgba(34,197,94,0.55) !important;
 }
 
 .sm-hint{margin-top:10px; font-size:12px; color:var(--sm-muted);}

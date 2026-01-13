@@ -1,5 +1,5 @@
 <?php
-// Push Showmaster config JSON to ESP32 device
+// Push Showmaster config JSON to Showmaster device
 // Expects JSON body: {"ip":"192.168.1.50", "config":{...}}
 
 header('Content-Type: application/json');

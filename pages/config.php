@@ -6,10 +6,10 @@
 <div class="sm-wrap">
   <div class="sm-topbar">
     <div class="sm-brand">
-      <div class="sm-logo">SM</div>
+      <div class="sm-logo"><img src="plugin.php?plugin=showmaster&file=images/ledshows.png&nopage=1" alt="LED-SHOWS" /></div>
       <div>
         <div class="sm-title">Showmaster Builder</div>
-        <div class="sm-subtitle">Canvas 320×240 • Drag • Resize • Push to ESP32</div>
+        <div class="sm-subtitle">Canvas 320×240 • Drag • Resize • Push to Showmaster</div>
       </div>
     </div>
 
@@ -19,8 +19,8 @@
       <button class="buttons btn-success" id="smSave">Save</button>
       <button class="buttons btn-outline-light" id="smLoad">Load</button>
       <div class="sm-upload">
-        <input class="sm-ip" id="smDeviceIp" placeholder="ESP32 IP (e.g. 192.168.1.50)" />
-        <button class="buttons btn-primary" id="smUpload">Upload to Device</button>
+        <input class="sm-ip" id="smDeviceIp" placeholder="Showmaster IP (e.g. 192.168.1.50)" />
+        <button class="buttons btn-primary" id="smUpload">Push to Showmaster</button>
       </div>
     </div>
   </div>
@@ -32,7 +32,7 @@
         <div class="sm-canvasTools">
           <span class="sm-toolLabel">Background</span>
           <input id="smCanvasBg" type="color" value="#0b1020" title="Canvas background" />
-          <label class="sm-check"><input id="smGridToggle" type="checkbox" checked /> Grid</label>
+          <label class="sm-check"><input id="smGridToggle" type="checkbox" checked /> Snap</label>
         </div>
       </div>
       <div id="smCanvas" class="sm-canvas" aria-label="Showmaster canvas">
