@@ -30,6 +30,28 @@
     widgets: []
   };
 
+
+  // --- zoom / scaling ---
+  function getZoomPercent() {
+    const v = parseInt($('#smZoom').val() || '0', 10);
+    if (!v || v <= 0) return 100; // 0 = original size
+    return v;
+  }
+  function getScale() { return getZoomPercent() / 100.0; }
+
+  function ensureCanvasSizing() {
+    const s = getScale();
+    // Resize canvas to scaled size so drag/resize use true pixels (no CSS zoom confusion)
+    $('#smCanvas').css({
+      width: Math.round(DEVICE_W * s) + 'px',
+      height: Math.round(DEVICE_H * s) + 'px'
+    });
+    // Match grid visuals to snap size at current scale
+    $('#smCanvas .sm-grid').css('background-size', (GRID * s) + 'px ' + (GRID * s) + 'px');
+    $('#smZoomLabel').text(getZoomPercent() + '%');
+  }
+
+
   let selectedId = null;
   let commandsCache = [];
   let playlistsCache = [];
@@ -163,7 +185,7 @@ function renderCanvas() {
           }
           w.x = clamp(nx, 0, DEVICE_W - w.w);
           w.y = clamp(ny, 0, DEVICE_H - w.h);
-          $el.css({ left: Math.round(w.x * getScale()), top: w.y });
+          $el.css({ left: Math.round(w.x * getScale()), top: Math.round(w.y * getScale()) });
           syncPropsXYWH(w);
         }
       });
@@ -198,7 +220,7 @@ function renderCanvas() {
           w.x = clamp(nx, 0, DEVICE_W - w.w);
           w.y = clamp(ny, 0, DEVICE_H - w.h);
 
-          $el.css({ left: Math.round(w.x * getScale()), top: Math.round(w.y * getScale()), width: Math.round(w.w * getScale()), height: w.h });
+          $el.css({ left: Math.round(w.x * getScale()), top: Math.round(w.y * getScale()), width: Math.round(w.w * getScale()), height: Math.round(w.h * getScale()) });
           syncPropsXYWH(w);
         }
       });
@@ -861,10 +883,17 @@ function rebuildCmdArgsUI(w) {
 async function init() {
     ensureCanvasSizing();
 
-    // snap/grid toggle
+    // zoom slider
+    $('#smZoom').on('input change', function () {
+      ensureCanvasSizing();
+      renderCanvas(); // rerender at new scale
+    });
+
+// snap/grid toggle
     $('#smGridToggle').on('change', function () {
       state.snap = !!$(this).is(':checked');
       $('.sm-grid').toggle(state.snap);
+      ensureCanvasSizing();
       renderCanvas();
       if (selectedId) setSelection(selectedId);
     });
