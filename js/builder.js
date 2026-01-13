@@ -746,7 +746,6 @@ async function uploadToShowmaster() {
 $('#smGridToggle').prop('checked', !!state.snap);
   }
 
-  async 
 // --- Command modal helpers (BigButtons-like) ---
 function openCommandModal(w) {
   // populate command dropdown
