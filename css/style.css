@@ -347,7 +347,7 @@
 
 
 /* Zoom slider */
-.sm-zoomSlider{ width:160px; vertical-align:middle; margin:0 8px; }
+.sm-zoomSlider{width:260px;max-width:320px;}
 .sm-zoomLabel{ min-width:70px; display:inline-block; color:#cfefff; font-size:12px; }
 
 /* Make color inputs + checkbox consistent in toolbar */
@@ -375,3 +375,7 @@
 #smZoomRange{max-width:360px;width:360px;}
 
 .sm-zoom-row{display:flex;align-items:center;gap:10px;}
+
+.sm-row3{display:grid;grid-template-columns:1fr 140px;gap:10px;}
+
+.sm-canvasTools input[type=color]{width:40px;height:30px;padding:0;border-radius:8px;}

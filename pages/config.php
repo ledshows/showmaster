@@ -132,6 +132,22 @@
           <input type="hidden" id="smCommand" />
           <input type="hidden" id="smCommandArgsJson" />
 
+          <div class="sm-row3">
+            <div class="sm-field">
+              <label>Icon</label>
+              <div class="sm-iconRow">
+                <input id="smIconValue" placeholder="(none)" readonly />
+                <button class="buttons btn-outline-light" id="smPickIcon" type="button">Select…</button>
+                <button class="buttons btn-outline-light" id="smClearIcon" type="button">Clear</button>
+              </div>
+            </div>
+            <div class="sm-field">
+              <label>Icon size</label>
+              <input id="smIconSize" type="number" min="8" max="64" step="1" />
+            </div>
+          </div>
+
+
 </div>
 
         <div id="smStatusFields">
@@ -171,33 +187,24 @@
         </button>
       </div>
       <div class="modal-body">
-        <input id="smIconModalSearch" class="form-control" placeholder="Find an Icon" />
-        <div id="smIconGrid" class="sm-iconGrid"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Command Picker Modal -->
-<div class="modal fade" id="smCmdModal" tabindex="-1" role="dialog" aria-hidden="true">
-  <div class="modal-dialog modal-lg" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h4 class="modal-title">Command for Button</h4>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <div class="form-horizontal">
-          <div class="form-group row">
-            <label class="col-sm-3 col-form-label">Command:</label>
-            <div class="col-sm-9">
-              <select id="smCmdSelect" class="form-control"></select>
-            </div>
+        <div class="bb_commandTableWrap">
+          <div class="bb_commandTableCrop">
+            <table border="0" class="tableButton" id="smCmdTable">
+              <tbody>
+                <tr>
+                  <td>Command:</td>
+                  <td>
+                    <select id="smCmdSelect" class="form-control"></select>
+                  </td>
+                </tr>
+                <tr id="smCmdDescRow" style="display:none;">
+                  <td></td>
+                  <td id="smCmdDescText" class="text-muted"></td>
+                </tr>
+                <tbody id="smCmdArgs"></tbody>
+              </tbody>
+            </table>
           </div>
-
-          <div id="smCmdArgs"></div>
         </div>
       </div>
       <div class="modal-footer">

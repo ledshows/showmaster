@@ -48,7 +48,8 @@
     });
     // Match grid visuals to snap size at current scale
     $('#smCanvas .sm-grid').css('background-size', (GRID * s) + 'px ' + (GRID * s) + 'px');
-    $('#smZoomLabel').text(getZoomPercent() + '%');
+    const zp=getZoomPercent();
+    $('#smZoomLabel').text(zp===100 ? 'Original size' : (zp + '%'));
   }
 
 
@@ -419,27 +420,37 @@ function prettySourceLabel(id) {
     $c.data('populated', true);
   }
 
-  async function fetchCommands() {
+  
+async function fetchCommands() {
     try {
       const resp = await fetch('/api/commands');
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const json = await resp.json();
 
-      // FPP may return {commands:[...]} or an array; support both
       let list = [];
       if (Array.isArray(json)) list = json;
       else if (Array.isArray(json.commands)) list = json.commands;
       else if (Array.isArray(json.data)) list = json.data;
-      else list = [];
 
-      // normalize to names
-      commandsCache = list.map(x => (typeof x === 'string' ? x : (x.name || x.command || ''))).filter(Boolean);
-      commandsCache.sort((a, b) => a.localeCompare(b));
+      // Normalize to objects: { name, description, args }
+      commandsCache = (list || []).map(x => {
+        if (typeof x === 'string') return { name: x, description: '', args: [] };
+        const name = (x.name || x.command || '').toString();
+        if (!name) return null;
+        const desc = (x.description || x.desc || x.help || x.summary || '').toString();
+        const args = Array.isArray(x.args) ? x.args : (Array.isArray(x.arguments) ? x.arguments : (Array.isArray(x.params) ? x.params : []));
+        return { name, description: desc, args };
+      }).filter(Boolean);
+
+      commandsCache.sort((a,b)=>a.name.localeCompare(b.name));
+      state.commands = commandsCache;
     } catch (e) {
       commandsCache = [];
+      state.commands = [];
       console.warn('Showmaster: could not load /api/commands', e);
-      toast('Could not load command list (still usable).', true);
+      toast('Could not load command list', true);
     }
+  }
   }
 
 async function fetchPlaylists() {
@@ -725,6 +736,16 @@ async function uploadToShowmaster() {
       $('#smIconModal').modal('show');
     });
 
+    $('#smClearIcon').on('click', function(e){
+      e.preventDefault();
+      const w=getSelected();
+      if(!w||w.type!=='action') return;
+      w.icon='';
+      $('#smIconValue').val('');
+      renderCanvas();
+      setSelection(w.id);
+    });
+
     $('#smIconModalSearch').on('input', function () {
       filterIconGrid($(this).val() || '');
     });
@@ -740,7 +761,7 @@ async function uploadToShowmaster() {
       $('#smIconModal').modal('hide');
     });
 
-    $('#smIconValue').on('input', function () {
+    $('#smIconValue').on('input change', function () {
       const w = getSelected();
       if (!w || w.type !== 'action') return;
       w.icon = $(this).val().trim();
@@ -776,7 +797,8 @@ function openCommandModal(w) {
   (state.commands || []).forEach(c => {
     const name = c.name || c.command || '';
     if (!name) return;
-    const opt = $('<option/>').attr('value', name).text(c.description ? `${c.description}` : name);
+    const opt = $('<option/>').attr('value', name).text(name);
+    opt.data('desc', c.description || '');
     opt.data('cmd', c);
     $sel.append(opt);
   });
@@ -832,44 +854,79 @@ function prettyCommandLabel(cmd, args) {
   return cmd;
 }
 
+
 function rebuildCmdArgsUI(w) {
-  const cmd = (w.command || '').toLowerCase();
   const $a = $('#smCmdArgs');
   $a.empty();
 
-  // Start Playlist - mimic FPP modal fields
-  if (cmd.includes('start') && cmd.includes('playlist')) {
-    const pl = (w.args && w.args.playlist) ? w.args.playlist : '';
+  const selectedCmdObj = $('#smCmdSelect option:selected').data('cmd') || null;
+  const desc = selectedCmdObj && selectedCmdObj.description ? selectedCmdObj.description : '';
+  if (desc) {
+    $('#smCmdDescText').text(desc);
+    $('#smCmdDescRow').show();
+  } else {
+    $('#smCmdDescRow').hide();
+    $('#smCmdDescText').text('');
+  }
+
+  const cmdName = (w.command || '').toLowerCase();
+
+  // Start Playlist (BigButtons-like fields)
+  if (cmdName.includes('start') && cmdName.includes('playlist')) {
+    const args = w.args || {};
+    const pl = args.playlist || '';
+    const multisync = !!args.multisync;
+    const repeat = !!args.repeat;
+    const ifNotRunning = !!args.ifNotRunning;
+
+    const hosts = (args.multisyncHosts || '').toString();
+
     $a.append(`
-      <div class="form-group row">
-        <label class="col-sm-3 col-form-label">Multisync:</label>
-        <div class="col-sm-9"><input type="checkbox" data-arg="multisync" ${w.args && w.args.multisync ? 'checked':''}></div>
-      </div>
-      <div class="form-group row">
-        <label class="col-sm-3 col-form-label">Playlist Name:</label>
-        <div class="col-sm-9"><select class="form-control" data-arg="playlist" id="smCmdPlaylist"></select></div>
-      </div>
-      <div class="form-group row">
-        <label class="col-sm-3 col-form-label">Repeat:</label>
-        <div class="col-sm-9"><input type="checkbox" data-arg="repeat" ${w.args && w.args.repeat ? 'checked':''}></div>
-      </div>
-      <div class="form-group row">
-        <label class="col-sm-3 col-form-label">If Not Running:</label>
-        <div class="col-sm-9"><input type="checkbox" data-arg="ifNotRunning" ${w.args && w.args.ifNotRunning ? 'checked':''}></div>
-      </div>
+      <tr id="smCmd_multisync_row"><td>Multisync:</td>
+        <td><input type="checkbox" data-arg="multisync" ${multisync ? 'checked' : ''}></td>
+      </tr>
+      <tr id="smCmd_playlist_row"><td>Playlist Name:</td>
+        <td>
+          <select class="form-control" data-arg="playlist" id="smCmd_playlist"></select>
+        </td>
+      </tr>
+      <tr id="smCmd_repeat_row"><td>Repeat:</td>
+        <td><input type="checkbox" data-arg="repeat" ${repeat ? 'checked' : ''}></td>
+      </tr>
+      <tr id="smCmd_ifnot_row"><td>If Not Running:</td>
+        <td><input type="checkbox" data-arg="ifNotRunning" ${ifNotRunning ? 'checked' : ''}></td>
+      </tr>
+      <tr id="smCmd_hosts_row" style="${multisync ? '' : 'display:none;'}"><td>Hosts:</td>
+        <td><input class="form-control" data-arg="multisyncHosts" placeholder="192.168.1.10,192.168.1.11" value="${escapeHtml(hosts)}"></td>
+      </tr>
     `);
 
-    // fill playlist list
-    const $pl = $('#smCmdPlaylist');
-    $pl.empty();
+    // populate playlists
+    const $plSel = $('#smCmd_playlist');
+    $plSel.empty().append(`<option value="" disabled ${!pl ? 'selected' : ''}>Select a Playlist</option>`);
     (state.playlists || []).forEach(p => {
-      const name = p.name || p.playlist || p;
-      if (!name) return;
-      $pl.append($('<option/>').attr('value', name).text(name));
+      const opt = $('<option/>').attr('value', p).text(p);
+      $plSel.append(opt);
     });
-    if (pl) $pl.val(pl);
+    if (pl) $plSel.val(pl);
+
+    // multisync show/hide
+    $a.off('change', 'input[data-arg="multisync"]').on('change', 'input[data-arg="multisync"]', function(){
+      const on = $(this).is(':checked');
+      $('#smCmd_hosts_row').toggle(on);
+    });
+
     return;
   }
+
+  // Generic single argument
+  const arg = (w.args && (w.args.arg || w.args.value || w.args.text)) ? (w.args.arg || w.args.value || w.args.text) : '';
+  $a.append(`
+    <tr id="smCmd_arg_row"><td>Arg (optional):</td>
+      <td><input class="form-control" data-arg="arg" placeholder="Optional argument" value="${escapeHtml(arg)}"></td>
+    </tr>
+  `);
+}
 
   // Generic arg input
   $a.append(`
@@ -882,6 +939,12 @@ function rebuildCmdArgsUI(w) {
 
 async function init() {
     ensureCanvasSizing();
+
+    // canvas background
+    $('#smCanvasBg').on('input change', function(){
+      state.device.bg = $(this).val();
+      $('#smCanvas').css('background', state.device.bg);
+    });
 
     // zoom slider
     $('#smZoom').on('input change', function () {
