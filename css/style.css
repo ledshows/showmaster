@@ -379,3 +379,12 @@
 .sm-row3{display:grid;grid-template-columns:1fr 140px;gap:10px;}
 
 .sm-canvasTools input[type=color]{width:40px;height:30px;padding:0;border-radius:8px;}
+
+
+/* v2.4.6 tweaks */
+#smZoom{max-width:360px;width:360px;}
+#smToast{position:fixed;right:18px;bottom:18px;padding:10px 14px;border-radius:10px;background:rgba(0,0,0,.8);color:#fff;display:none;z-index:9999;}
+#smToast.err{background:rgba(180,0,0,.85);}
+.smIconTile{width:40px;height:40px;border-radius:10px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);margin:6px;}
+.smIconTile i{font-size:18px;}
+.smIconTile.active{outline:2px solid rgba(34,211,238,.8);}

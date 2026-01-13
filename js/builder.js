@@ -1,83 +1,46 @@
-/* Showmaster Builder
+/* Showmaster Builder (ES5-safe)
  * 320x240 drag+resize UI builder for the Showmaster touchscreen
  */
-
 (function () {
-  const DEVICE_W = 320;
-  const DEVICE_H = 240;
-  const CONFIG_FILE = 'plugin.showmaster.json';
-  const GRID = 10;
+  var DEVICE_W = 320;
+  var DEVICE_H = 240;
+  var GRID = 10;
 
-  const STATUS_SOURCES = [
-  { id: 'player.statusText', label: 'Player: Status text' },
-  { id: 'player.mode', label: 'Player: Mode' },
-  { id: 'player.volume', label: 'Player: Volume' },
-  { id: 'player.uptime', label: 'Player: Uptime' },
-  { id: 'player.currentPlaylist', label: 'Player: Current playlist' },
-  { id: 'player.currentSequence', label: 'Player: Current sequence' },
-
-  { id: 'system.hostname', label: 'System: Hostname' },
-  { id: 'system.ip', label: 'System: IP address' },
-  { id: 'system.cpuTemp', label: 'System: CPU temp' },
-  { id: 'system.cpuLoad', label: 'System: CPU load' },
-  { id: 'system.mem', label: 'System: Memory' },
-  { id: 'system.disk', label: 'System: Disk' }
-];
-
-  let state = {
-    device: { w: DEVICE_W, h: DEVICE_H, bg: '#05070d' },
+  var state = {
+    device: { w: DEVICE_W, h: DEVICE_H, bg: "#0b0f14" },
+    widgets: [],
+    commands: [],
+    playlists: [],
+    selectedId: null,
     snap: true,
-    widgets: []
+    zoom: 200 // percent
   };
 
+  // -------- helpers --------
+  function uid(prefix) {
+    var r = Math.random().toString(16).slice(2, 10);
+    return (prefix || "w") + "_" + (new Date().getTime().toString(16)) + "_" + r;
+  }
+  function clamp(n, min, max) { n = Number(n); if (isNaN(n)) n = min; return Math.max(min, Math.min(max, n)); }
+  function toInt(v, d) { v = parseInt(v, 10); return isNaN(v) ? d : v; }
 
-  // --- zoom / scaling ---
   function getZoomPercent() {
-    const v = parseInt($('#smZoom').val() || '0', 10);
-    if (!v || v <= 0) return 100; // 0 = original size
-    return v;
+    var v = toInt($("#smZoom").val(), state.zoom);
+    if (v <= 0) v = 100; // 0 means original size
+    return clamp(v, 50, 300);
   }
   function getScale() { return getZoomPercent() / 100.0; }
 
-  function ensureCanvasSizing() {
-    const s = getScale();
-    // Resize canvas to scaled size so drag/resize use true pixels (no CSS zoom confusion)
-    $('#smCanvas').css({
-      width: Math.round(DEVICE_W * s) + 'px',
-      height: Math.round(DEVICE_H * s) + 'px'
-    });
-    // Match grid visuals to snap size at current scale
-    $('#smCanvas .sm-grid').css('background-size', (GRID * s) + 'px ' + (GRID * s) + 'px');
-    const zp=getZoomPercent();
-    $('#smZoomLabel').text(zp===100 ? 'Original size' : (zp + '%'));
+  function toast(msg, isErr) {
+    var $t = $("#smToast");
+    if (!$t.length) return alert(msg);
+    $t.text(msg).toggleClass("err", !!isErr).fadeIn(120);
+    setTimeout(function(){ $t.fadeOut(250); }, 2600);
   }
 
-
-  let selectedId = null;
-  let commandsCache = [];
-  let playlistsCache = [];
-
-  function uid(prefix) {
-    const r = Math.random().toString(16).slice(2, 10);
-    return `${prefix}_${Date.now().toString(16)}_${r}`;
-  }
-
-  function clamp(n, min, max) {
-    n = Number(n);
-    if (Number.isNaN(n)) return min;
-    return Math.max(min, Math.min(max, n));
-  }
-
-  function toast(msg, isError) {
-    const $t = $('#smToast');
-    $t.text(msg);
-    $t.css({ borderColor: isError ? 'rgba(239,68,68,0.65)' : '#00e5ff' });
-    $t.stop(true, true).fadeIn(120);
-    setTimeout(() => $t.fadeOut(250), 2600);
-  }
-
-  function getSelected() {
-    return state.widgets.find(w => w.id === selectedId) || null;
+  function widgetById(id) {
+    for (var i=0;i<state.widgets.length;i++) if (state.widgets[i].id === id) return state.widgets[i];
+    return null;
   }
 
   function normalizeWidget(w) {
@@ -85,872 +48,533 @@
     w.y = clamp(w.y, 0, DEVICE_H - 1);
     w.w = clamp(w.w, 10, DEVICE_W);
     w.h = clamp(w.h, 10, DEVICE_H);
-
-    // keep inside bounds
-    if (w.x + w.w > DEVICE_W) w.x = DEVICE_W - w.w;
-    if (w.y + w.h > DEVICE_H) w.y = DEVICE_H - w.h;
-    w.x = clamp(w.x, 0, DEVICE_W - 10);
-    w.y = clamp(w.y, 0, DEVICE_H - 10);
-
-
-
-    // style defaults
-    if (w.bg === undefined) w.bg = (w.type === 'action') ? '#0b1220' : '#111827';
-    if (w.fg === undefined) w.fg = '#e8f9ff';
-    if (w.border === undefined) w.border = '#00e5ff';
-    if (w.borderSize === undefined) w.borderSize = 2;
-    if (w.radius === undefined) w.radius = 10;
-    if (w.fontSize === undefined) w.fontSize = (w.type === 'status') ? 11 : 12;
-    if (w.args === undefined) w.args = {};
-    if (w.type === 'action') {
-      w.label = (w.label ?? 'Button').toString();
-      w.command = (w.command ?? '').toString();
-      if (w.icon === undefined) w.icon = '';
-    } else if (w.type === 'status') {
-      w.source = (w.source ?? 'player.statusText').toString();
-    }
+    if (!w.bg) w.bg = (w.type === "action") ? "#0ea5e9" : "rgba(255,255,255,0.06)";
+    if (!w.text) w.text = "#eaf2ff";
+    if (!w.border) w.border = "#22d3ee";
+    if (typeof w.borderSize === "undefined") w.borderSize = 2;
+    if (typeof w.radius === "undefined") w.radius = 10;
+    if (typeof w.textSize === "undefined") w.textSize = 12;
+    if (typeof w.iconSize === "undefined") w.iconSize = 14;
+    if (!w.label && w.type === "action") w.label = "Button";
+    if (!w.source && w.type === "status") w.source = "player.statusText";
+    if (!w.command && w.type === "action") w.command = "";
+    if (!w.args && w.type === "action") w.args = {};
     return w;
   }
 
-  function setSelection(id) {
-    selectedId = id;
-    $('.sm-widget').removeClass('sm-selected');
-    if (id) $(`.sm-widget[data-id='${id}']`).addClass('sm-selected');
-    renderProps();
+  // -------- rendering --------
+  function ensureCanvasSizing() {
+    var s = getScale();
+    var cw = Math.round(DEVICE_W * s);
+    var ch = Math.round(DEVICE_H * s);
+    $("#smCanvasWrap").css({ width: cw + "px", height: ch + "px" });
+    $("#smCanvas").css({ width: cw + "px", height: ch + "px", backgroundColor: state.device.bg });
+    $("#smCanvas").toggleClass("snap-on", !!state.snap);
+    // scale grid
+    $("#smCanvas").css("background-size", (GRID*s) + "px " + (GRID*s) + "px");
+    // label
+    $("#smZoomLabel").text(getZoomPercent() === 100 ? "Original size" : (getZoomPercent() + "%"));
   }
 
-  
-function renderCanvas() {
-  const $canvas = $('#smCanvas');
-  $canvas.empty().append('<div class="sm-grid"></div>');
-  $('.sm-grid', $canvas).toggle(!!state.snap);
-
-  state.widgets.forEach(w => {
-    w = normalizeWidget(w);
-
-    const $el = $('<div class="sm-widget"></div>');
-    $el.attr('data-id', w.id);
+  function applyWidgetCss($el, w) {
+    var s = getScale();
     $el.css({
-      left: Math.round(w.x * getScale()),
-      top: Math.round(w.y * getScale()),
-      width: Math.round(w.w * getScale()),
-      height: Math.round(w.h * getScale()),
+      left: Math.round(w.x * s) + "px",
+      top: Math.round(w.y * s) + "px",
+      width: Math.round(w.w * s) + "px",
+      height: Math.round(w.h * s) + "px",
       background: w.bg,
-      color: w.fg,
+      color: w.text,
       borderColor: w.border,
-      borderWidth: (w.borderSize ?? 2) + 'px',
-      borderStyle: 'solid',
-      borderRadius: (w.radius ?? 10) + 'px',
-      fontSize: (w.fontSize ?? (w.type === 'status' ? 11 : 12)) + 'px'
+      borderWidth: (w.borderSize||0) + "px",
+      borderRadius: (w.radius||0) + "px",
+      fontSize: (w.textSize||12) + "px"
     });
+    $el.attr("data-id", w.id);
+  }
 
-    if (w.type === 'action') {
-      $el.addClass('sm-action').html(`
-        <div class="sm-inner">
-          <span class="sm-icon">${w.icon ? `<i class="fas fa-${escapeHtml(w.icon)}" style="font-size:${(w.iconSize ?? 14)}px"></i>` : ''}</span>
-          <span class="sm-label">${escapeHtml(w.label || 'Button')}</span>
-        </div>
-      `);
-    } else {
-      $el.addClass('sm-status').html(`
-        <div class="sm-inner">
-          <span class="sm-label">${escapeHtml(prettySourceLabel(w.source) || w.source || 'Status')}</span>
-        </div>
-      `);
+  function widgetText(w) {
+    if (w.type === "status") return prettySource(w.source);
+    // action: icon + label
+    var icon = w.icon ? ("<i class='fa fa-" + esc(w.icon) + "' style='font-size:" + (w.iconSize||14) + "px'></i> ") : "";
+    return icon + "<span>" + esc(w.label || "") + "</span>";
+  }
+
+  function esc(s) {
+    s = (s == null) ? "" : String(s);
+    return s.replace(/[&<>"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);});
+  }
+
+  function renderCanvas() {
+    ensureCanvasSizing();
+    var $c = $("#smCanvas");
+    $c.empty();
+
+    for (var i=0;i<state.widgets.length;i++) {
+      var w = normalizeWidget(state.widgets[i]);
+      var $el = $("<div class='smWidget'></div>");
+      $el.toggleClass("action", w.type === "action");
+      $el.toggleClass("status", w.type === "status");
+      if (w.id === state.selectedId) $el.addClass("selected");
+      $el.html(widgetText(w));
+      applyWidgetCss($el, w);
+      $c.append($el);
+
+      // make interactive
+      makeInteractive($el, w);
     }
+  }
 
-    $el.on('mousedown', (e) => {
+  function makeInteractive($el, w) {
+    var s = getScale();
+
+    $el.off("mousedown").on("mousedown", function(e){
       e.stopPropagation();
       setSelection(w.id);
     });
 
-    $canvas.append($el);
+    // draggable/resizable in scaled space
+    $el.draggable("destroy");
+    $el.resizable("destroy");
 
-    if ($.fn.draggable && $.fn.resizable) {
-      $el.draggable({
-        containment: 'parent',
-        grid: state.snap ? [GRID * getScale(), GRID * getScale()] : false,
-        scroll: false,
-        start: () => setSelection(w.id),
-        drag: (e, ui) => {
-          w.x = Math.round(ui.position.left / getScale());
-          w.y = Math.round(ui.position.top / getScale());
-          syncPropsXYWH(w);
-        },
-        stop: (e, ui) => {
-          let nx = Math.round(ui.position.left / getScale());
-          let ny = Math.round(ui.position.top / getScale());
-          if (state.snap) {
-            nx = Math.round(nx / GRID) * GRID;
-            ny = Math.round(ny / GRID) * GRID;
-          }
-          w.x = clamp(nx, 0, DEVICE_W - w.w);
-          w.y = clamp(ny, 0, DEVICE_H - w.h);
-          $el.css({ left: Math.round(w.x * getScale()), top: Math.round(w.y * getScale()) });
-          syncPropsXYWH(w);
-        }
-      });
-
-      $el.resizable({
-        containment: 'parent',
-        grid: state.snap ? GRID * getScale() : false,
-        handles: 'n,e,s,w,ne,se,sw,nw',
-        start: () => setSelection(w.id),
-        resize: (e, ui) => {
-          w.x = Math.round(ui.position.left / getScale());
-          w.y = Math.round(ui.position.top / getScale());
-          w.w = Math.round(ui.size.width / getScale());
-          w.h = Math.round(ui.size.height / getScale());
-          syncPropsXYWH(w);
-        },
-        stop: (e, ui) => {
-          let nx = Math.round(ui.position.left / getScale());
-          let ny = Math.round(ui.position.top / getScale());
-          let nw = Math.round(ui.size.width / getScale());
-          let nh = Math.round(ui.size.height / getScale());
-
-          if (state.snap) {
-            nx = Math.round(nx / GRID) * GRID;
-            ny = Math.round(ny / GRID) * GRID;
-            nw = Math.max(10, Math.round(nw / GRID) * GRID);
-            nh = Math.max(10, Math.round(nh / GRID) * GRID);
-          }
-
-          w.w = clamp(nw, 10, DEVICE_W);
-          w.h = clamp(nh, 10, DEVICE_H);
-          w.x = clamp(nx, 0, DEVICE_W - w.w);
-          w.y = clamp(ny, 0, DEVICE_H - w.h);
-
-          $el.css({ left: Math.round(w.x * getScale()), top: Math.round(w.y * getScale()), width: Math.round(w.w * getScale()), height: Math.round(w.h * getScale()) });
-          syncPropsXYWH(w);
-        }
-      });
-    }
-  });
-
-  if (selectedId) {
-    $(`[data-id='${selectedId}']`).addClass('sm-selected');
-  }
-}
-
-
-
-  function iconToFaClass(name) {
-    name = (name || '').trim();
-    if (!name) return '';
-    if (name.includes('fa ')) return name;
-    if (name.startsWith('fa-')) return `fa ${name}`;
-    return `fa fa-${name}`;
-  }
-
-  
-// --- Icon grid helpers ---
-let __iconGridBuilt = false;
-function normalizeIconName(x) {
-  if (!x) return '';
-  if (typeof x === 'string') return x.replace(/^fa[srbld] fa-/, '').replace(/^fa-/, '').trim();
-  if (typeof x === 'object') {
-    if (x.icon) return normalizeIconName(x.icon);
-    if (x.title) return normalizeIconName(x.title);
-    if (x.name) return normalizeIconName(x.name);
-  }
-  return String(x);
-}
-function getIconList() {
-  if (!window.FA_ICONS) return [];
-  return window.FA_ICONS.map(normalizeIconName).filter(Boolean);
-}
-function buildIconGrid() {
-  if (__iconGridBuilt) return;
-  const icons = getIconList();
-  const $g = $('#smIconGrid');
-  $g.empty();
-  icons.forEach(ic => {
-    const safe = escapeHtml(ic);
-    $g.append(`<button type="button" class="sm-iconBtn" data-icon="${safe}" title="${safe}"><i class="fas fa-${safe}"></i></button>`);
-  });
-  __iconGridBuilt = true;
-}
-function filterIconGrid(q) {
-  q = (q || '').toLowerCase().trim();
-  $('#smIconGrid .sm-iconBtn').each(function () {
-    const ic = String($(this).data('icon') || '').toLowerCase();
-    $(this).toggle(!q || ic.includes(q));
-  });
-}
-
-function escapeHtml(s) {
-    return String(s)
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#039;');
-  }
-
-  function renderProps() {
-    const w = getSelected();
-    if (!w) {
-      $('#smPropsForm').hide();
-      $('#smNoSelection').show();
-      return;
-    }
-
-    $('#smNoSelection').hide();
-    $('#smPropsForm').show();
-
-    $('#smType').val(w.type);
-    $('#smId').val(w.id);
-
-    syncPropsXYWH(w);
-
-    
-// widget colors
-$('#smBg').val(w.bg || '#0b1220');
-$('#smFg').val(w.fg || '#e8f9ff');
-$('#smBorder').val(w.border || '#00e5ff');
-$('#smFontSize').val(w.fontSize ?? ((w.type === 'status') ? 11 : 12));
-$('#smBorderSize').val(w.borderSize ?? 2);
-$('#smRadius').val(w.radius ?? 10);
-
-    if (w.type === 'action') {
-      $('#smActionFields').show();
-      $('#smStatusFields').hide();
-      $('#smLabel').val(w.label || '');
-
-      // command select options
-      populateCommandsSelect();
-      $('#smCommand').val(w.command || '');
-      $('#smCommandDisplay').val(prettyCommandLabel(w.command, w.args));
-      $('#smCommandArgsJson').val(JSON.stringify(w.args || {}));
-      updateCmdArgsUI(w);
-
-      $('#smIconValue').val(w.icon || '');
-      $('#smIconSize').val(w.iconSize ?? 14);
-    } else {
-      $('#smActionFields').hide();
-      $('#smStatusFields').show();
-      populateSourcesSelect();
-      $('#smSource').val(w.source || 'player.statusText');
-    }
-  }
-
-  function syncPropsXYWH(w) {
-    if (!w || w.id !== selectedId) return;
-    $('#smX').val(w.x);
-    $('#smY').val(w.y);
-    $('#smW').val(w.w);
-    $('#smH').val(w.h);
-  }
-
-  function populateSourcesSelect() {
-    const $s = $('#smSource');
-    if ($s.children().length) return;
-    STATUS_SOURCES.forEach(x => {
-      $s.append(`<option value="${escapeHtml(x.id)}">${escapeHtml(x.label)}</option>`);
-    });
-  }
-
-function prettySourceLabel(id) {
-  const f = STATUS_SOURCES.find(x => x.id === id);
-  return f ? f.label : id;
-}
-
-  function getFaIconList() {
-  const raw = Array.isArray(window.faIcons) ? window.faIcons
-            : (Array.isArray(window.icons) ? window.icons : []);
-  // raw can be ["play", ...] or [{title:"fas fa-play"}, ...]
-  return raw.map(x => {
-    if (typeof x === 'string') return x;
-    if (x && typeof x === 'object') {
-      const t = String(x.title || x.name || '');
-      const m = t.match(/fa-([a-z0-9-]+)/i);
-      return m ? m[1] : t;
-    }
-    return String(x || '');
-  }).filter(Boolean);
-}
-
-  function populateIconPicker() {
-    if (!$('#smIconPick').length) return;
-    const $pick = $('#smIconPick');
-    if ($pick.data('populated')) return;
-    const list = getFaIconList();
-    $pick.empty();
-    $pick.append('<option value="">(none)</option>');
-    list.forEach(n => {
-      const name = String(n || '').replace(/^fa-/, '');
-      $pick.append(`<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`);
-    });
-    $pick.data('populated', true);
-  }
-
-  function syncIconPickSelection(iconName) {
-    const name = String(iconName || '').replace(/^fa-/, '');
-    $('#smIconPick').val(name);
-  }
-
-  function filterIconPick(q) {
-    q = (q || '').toLowerCase().trim();
-    const list = getFaIconList();
-    const $pick = $('#smIconPick');
-    $pick.empty();
-    $pick.append('<option value="">(none)</option>');
-    const max = 400;
-    let count = 0;
-    for (const n of list) {
-      const name = String(n || '').replace(/^fa-/, '');
-      if (!q || name.includes(q)) {
-        $pick.append(`<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`);
-        count++;
-        if (count >= max) break;
-      }
-    }
-  }
-
-  function populateCommandsSelect() {
-    const $c = $('#smCommand');
-    if ($c.data('populated') && $c.children().length > 0) return;
-
-    $c.empty();
-    $c.append('<option value="">(none)</option>');
-    commandsCache.forEach(cmd => {
-      $c.append(`<option value="${escapeHtml(cmd)}">${escapeHtml(cmd)}</option>`);
-    });
-    $c.data('populated', true);
-  }
-
-  
-function fetchCommands() {
-    return $.getJSON('/api/commands').then(function (json) {
-      var list = [];
-      if (Array.isArray(json)) list = json;
-      else if (json && Array.isArray(json.commands)) list = json.commands;
-      else if (json && Array.isArray(json.data)) list = json.data;
-
-      commandsCache = (list || []).map(function (x) {
-        if (typeof x === 'string') return { name: x, description: '', args: [] };
-        var name = (x.name || x.command || '').toString();
-        if (!name) return null;
-        var desc = (x.description || x.desc || x.help || x.summary || '').toString();
-        var args = Array.isArray(x.args) ? x.args : (Array.isArray(x.arguments) ? x.arguments : (Array.isArray(x.params) ? x.params : []));
-        return { name: name, description: desc, args: args };
-      }).filter(Boolean);
-
-      commandsCache.sort(function(a,b){ return a.name.localeCompare(b.name); });
-      state.commands = commandsCache;
-      return commandsCache;
-    }).catch(function (e) {
-      commandsCache = [];
-      state.commands = [];
-      console.warn('Showmaster: could not load /api/commands', e);
-      toast('Could not load command list', true);
-      return [];
-    });
-  }
-  }
-
-function fetchPlaylists() {
-    return $.getJSON('/api/playlists').then(function (json) {
-      var list = [];
-      if (Array.isArray(json)) list = json;
-      else if (json && Array.isArray(json.playlists)) list = json.playlists;
-      else if (json && Array.isArray(json.data)) list = json.data;
-
-      // normalize: strings or {name}
-      playlistsCache = (list || []).map(function (x) {
-        if (typeof x === 'string') return x;
-        return (x && (x.name || x.playlist || x.filename) ? (x.name || x.playlist || x.filename) : null);
-      }).filter(Boolean);
-
-      playlistsCache.sort();
-      populatePlaylistsDatalist();
-      return playlistsCache;
-    }).catch(function (e) {
-      playlistsCache = [];
-      console.warn('Showmaster: could not load /api/playlists', e);
-      return [];
-    });
-  }
-
-function populatePlaylistsSelect() {
-  const $p = $('#smPlaylist');
-  $p.empty();
-  $p.append('<option value="">(select)</option>');
-  playlistsCache.forEach(name => {
-    $p.append(`<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`);
-  });
-}
-
-function updateCmdArgsUI(w) {
-  const cmd = (w.command || '').toLowerCase();
-  const wantsPlaylist = cmd.includes('startplaylist') || cmd.includes('stopplaylist') || cmd.includes('start_playlist');
-  const wantsArg = (!wantsPlaylist && cmd.length > 0);
-
-  $('#smPlaylistField').toggle(wantsPlaylist);
-  $('#smArgField').toggle(wantsArg);
-
-  if (wantsPlaylist) {
-    populatePlaylistsSelect();
-    $('#smPlaylist').val((w.args && (w.args.playlist || w.args.Playlist)) || '');
-  } else {
-    $('#smPlaylist').val('');
-  }
-
-  if (wantsArg) {
-    $('#smArg').val((w.args && (w.args.arg || w.args.value)) || '');
-  } else {
-    $('#smArg').val('');
-  }
-}
-
-  function addWidget(type) {
-    const base = {
-      id: uid(type),
-      type,
-      x: 10,
-      y: 10,
-      w: type === 'status' ? 170 : 120,
-      h: type === 'status' ? 26 : 44
-    };
-
-    // style
-    base.bg = (type === 'action') ? '#0b1220' : '#111827';
-    base.fg = '#e8f9ff';
-    base.border = '#00e5ff';
-    base.borderSize = 2;
-    base.radius = 10;
-    base.fontSize = (type === 'status') ? 11 : 12;
-    base.args = {};
-
-    if (type === 'action') {
-      base.label = 'Button';
-      base.command = '';
-      base.icon = '';
-    } else {
-      base.source = 'player.statusText';
-    }
-
-    state.widgets.push(normalizeWidget(base));
-    renderCanvas();
-    setSelection(base.id);
-  }
-
-  function deleteSelected() {
-    if (!selectedId) return;
-    const idx = state.widgets.findIndex(w => w.id === selectedId);
-    if (idx >= 0) state.widgets.splice(idx, 1);
-    selectedId = null;
-    $('#smCanvas').css({ background: state.device.bg || '#05070d' });
-    $('#smCanvasBg').val(state.device.bg || '#05070d');
-    
-// style/property inputs
-$('#smBg, #smFg, #smBorder').on('input change', function () {
-  const w = getSelected();
-  if (!w) return;
-  w.bg = $('#smBg').val();
-  w.fg = $('#smFg').val();
-  w.border = $('#smBorder').val();
-  renderCanvas();
-  setSelection(w.id);
-});
-
-$('#smFontSize').on('input change', function () {
-  const w = getSelected();
-  if (!w) return;
-  w.fontSize = parseInt($(this).val() || '12', 10);
-  renderCanvas();
-  setSelection(w.id);
-});
-
-$('#smBorderSize').on('input change', function () {
-  const w = getSelected();
-  if (!w) return;
-  w.borderSize = parseInt($(this).val() || '2', 10);
-  renderCanvas();
-  setSelection(w.id);
-});
-
-$('#smRadius').on('input change', function () {
-  const w = getSelected();
-  if (!w) return;
-  w.radius = parseInt($(this).val() || '10', 10);
-  renderCanvas();
-  setSelection(w.id);
-});
-
-$('#smGridToggle').prop('checked', !!state.snap);
-    renderCanvas();
-    renderProps();
-  }
-
-  function toExport() {
-    // Export format expected by Showmaster (no internal ids)
-    return {
-      device: { w: DEVICE_W, h: DEVICE_H, bg: state.device.bg || '#05070d' },
-      widgets: state.widgets.map(w => {
-        const out = { ...w };
-        delete out.id;
-        // keep only relevant fields
-        if (out.type === 'action') {
-          delete out.source;
-        } else {
-          delete out.label;
-          delete out.command;
-          delete out.icon;
-        }
-        return out;
-      })
-    };
-  }
-    function saveConfig() {
-    var data = JSON.stringify(toExport(), null, 2);
-    return $.ajax({
-      url: 'api/configfile/' + CONFIG_FILE,
-      method: 'POST',
-      contentType: 'application/json',
-      data: data
-    }).done(function () {
-      toast('Saved.');
-      $('#smSave').addClass('success');
-      setTimeout(function(){ $('#smSave').removeClass('success'); }, 1500);
-    }).fail(function (xhr) {
-      console.error('Save failed', xhr);
-      toast('Save failed.', true);
-    });
-  }
-    function loadConfig() {
-    return $.getJSON('api/configfile/' + CONFIG_FILE).then(function (cfg) {
-      if (cfg && cfg.device && cfg.widgets) {
-        state.device = Object.assign(state.device || {}, cfg.device);
-        state.widgets = (cfg.widgets || []).map(function (w) { return hydrateWidget(w); });
-      } else if (cfg && cfg.device && cfg.items) { // legacy
-        state.device = Object.assign(state.device || {}, cfg.device);
-        state.widgets = (cfg.items || []).map(function (w) { return hydrateWidget(w); });
-      } else if (cfg && cfg.widgets) {
-        state.widgets = (cfg.widgets || []).map(function (w) { return hydrateWidget(w); });
-      }
-      // apply UI
-      applyDeviceBg();
-      renderCanvas();
-      renderProps();
-      return cfg;
-    }).catch(function () {
-      // if missing config, load default
-      return $.getJSON('plugin.php?plugin=showmaster&file=data/default.json').then(function (def) {
-        if (def && def.device) state.device = Object.assign(state.device || {}, def.device);
-        state.widgets = (def.widgets || []).map(function (w) { return hydrateWidget(w); });
-        applyDeviceBg();
+    $el.draggable({
+      containment: "#smCanvas",
+      grid: state.snap ? [GRID*s, GRID*s] : false,
+      stop: function(evt, ui){
+        var s2 = getScale();
+        w.x = Math.round(ui.position.left / s2);
+        w.y = Math.round(ui.position.top / s2);
+        if (state.snap) { w.x = Math.round(w.x/GRID)*GRID; w.y = Math.round(w.y/GRID)*GRID; }
+        w = normalizeWidget(w);
         renderCanvas();
         renderProps();
-      }).catch(function () {
-        // nothing
-      });
+      }
+    });
+
+    $el.resizable({
+      containment: "#smCanvas",
+      grid: state.snap ? [GRID*s, GRID*s] : false,
+      handles: "n,e,s,w,se,sw,ne,nw",
+      stop: function(evt, ui){
+        var s2 = getScale();
+        w.x = Math.round(ui.position.left / s2);
+        w.y = Math.round(ui.position.top / s2);
+        w.w = Math.round(ui.size.width / s2);
+        w.h = Math.round(ui.size.height / s2);
+        if (state.snap) {
+          w.x = Math.round(w.x/GRID)*GRID; w.y = Math.round(w.y/GRID)*GRID;
+          w.w = Math.round(w.w/GRID)*GRID; w.h = Math.round(w.h/GRID)*GRID;
+        }
+        w = normalizeWidget(w);
+        renderCanvas();
+        renderProps();
+      }
     });
   }
 
-  function applyLoaded(json) {
-    const widgets = Array.isArray(json?.widgets) ? json.widgets : [];
-    state = {
-      device: { w: DEVICE_W, h: DEVICE_H, bg: state.device.bg || '#05070d' },
-      widgets: widgets.map(w => normalizeWidget({ ...w, id: w.id || uid(w.type || 'w') }))
-    };
-    selectedId = null;
-    $('#smCanvas').css({ background: state.device.bg || '#05070d' });
-    $('#smCanvasBg').val(state.device.bg || '#05070d');
-    $('#smGridToggle').prop('checked', !!state.snap);
+  function setSelection(id) {
+    state.selectedId = id;
     renderCanvas();
     renderProps();
   }
 
-  
-function uploadToShowmaster() {
-    var ip = ($('#smIp').val() || '').trim();
-    if (!ip) { toast('Enter Showmaster IP.', true); return $.Deferred().reject().promise(); }
-    if (!/^([0-9]{1,3}\.){3}[0-9]{1,3}$/.test(ip) && ip.indexOf(':') === -1 && ip.indexOf('.') === -1) {
-      toast('Invalid IP/host.', true);
-      return $.Deferred().reject().promise();
+  // -------- properties panel --------
+  function renderProps() {
+    var w = widgetById(state.selectedId);
+    if (!w) {
+      $("#smPropsBody").html("<div class='muted'>Select a widget on the canvas.</div>");
+      return;
     }
+    w = normalizeWidget(w);
 
-    var payload = JSON.stringify(toExport(), null, 0);
-    $('#smUpload').prop('disabled', true).addClass('loading');
-    return $.ajax({
-      url: 'api/push.php',
-      method: 'POST',
-      dataType: 'json',
-      data: { ip: ip, payload: payload }
-    }).done(function (resp) {
-      if (resp && resp.ok) toast('Pushed to Showmaster.');
-      else toast((resp && resp.error) ? resp.error : 'Push failed.', true);
-    }).fail(function (xhr) {
-      var msg = 'Push failed.';
-      try {
-        var j = xhr.responseJSON;
-        if (j && j.error) msg = j.error;
-      } catch(e) {}
-      toast(msg, true);
-    }).always(function () {
-      $('#smUpload').prop('disabled', false).removeClass('loading');
-    });
+    $("#smPropsType").val(w.type);
+    $("#smX").val(w.x); $("#smY").val(w.y); $("#smW").val(w.w); $("#smH").val(w.h);
+    $("#smBg").val(w.bg); $("#smText").val(w.text); $("#smBorder").val(w.border);
+    $("#smBorderSize").val(w.borderSize);
+    $("#smRadius").val(w.radius);
+    $("#smTextSize").val(w.textSize);
+
+    $("#smActionFields").toggle(w.type === "action");
+    $("#smStatusFields").toggle(w.type === "status");
+
+    if (w.type === "action") {
+      $("#smLabel").val(w.label || "");
+      $("#smIcon").val(w.icon || "");
+      $("#smIconSize").val(w.iconSize || 14);
+      $("#smCmdSummary").text(w.command ? w.command : "Choose…");
+    } else {
+      $("#smSource").val(w.source || "player.statusText");
+    }
   }
 
-
-
-  function wirePropsInputs() {
-    function applyNumeric(id, key, max) {
-      $(id).on('input', function () {
-        const w = getSelected();
-        if (!w) return;
-        w[key] = clamp($(this).val(), 0, max);
-
-        if (key === 'w') w.w = clamp(w.w, 10, DEVICE_W);
-        if (key === 'h') w.h = clamp(w.h, 10, DEVICE_H);
-        normalizeWidget(w);
-
-        const $el = $(`.sm-widget[data-id='${w.id}']`);
-        $el.css({ left: Math.round(w.x * getScale()), top: Math.round(w.y * getScale()), width: Math.round(w.w * getScale()), height: Math.round(w.h * getScale()), background: w.bg, color: w.fg, borderColor: w.border, borderWidth: (w.borderSize??2)+'px', borderRadius: (w.radius??10)+'px', fontSize: (w.fontSize??12)+'px' });
-      });
+  function bindProps() {
+    function updatePosSize() {
+      var w = widgetById(state.selectedId); if (!w) return;
+      w.x = toInt($("#smX").val(), w.x); w.y = toInt($("#smY").val(), w.y);
+      w.w = toInt($("#smW").val(), w.w); w.h = toInt($("#smH").val(), w.h);
+      if (state.snap) { w.x = Math.round(w.x/GRID)*GRID; w.y = Math.round(w.y/GRID)*GRID; w.w = Math.round(w.w/GRID)*GRID; w.h = Math.round(w.h/GRID)*GRID; }
+      normalizeWidget(w); renderCanvas(); renderProps();
     }
+    $("#smX,#smY,#smW,#smH").off("input change").on("input change", updatePosSize);
 
-    applyNumeric('#smX', 'x', DEVICE_W);
-    applyNumeric('#smY', 'y', DEVICE_H);
-    applyNumeric('#smW', 'w', DEVICE_W);
-    applyNumeric('#smH', 'h', DEVICE_H);
+    $("#smBg,#smText,#smBorder").off("input change").on("input change", function(){
+      var w = widgetById(state.selectedId); if (!w) return;
+      w.bg = $("#smBg").val(); w.text = $("#smText").val(); w.border = $("#smBorder").val();
+      renderCanvas(); renderProps();
+    });
+    $("#smBorderSize").off("input change").on("input change", function(){
+      var w = widgetById(state.selectedId); if (!w) return;
+      w.borderSize = toInt($(this).val(), 2);
+      renderCanvas(); renderProps();
+    });
+    $("#smRadius").off("input change").on("input change", function(){
+      var w = widgetById(state.selectedId); if (!w) return;
+      w.radius = toInt($(this).val(), 10);
+      renderCanvas(); renderProps();
+    });
+    $("#smTextSize").off("input change").on("input change", function(){
+      var w = widgetById(state.selectedId); if (!w) return;
+      w.textSize = toInt($(this).val(), 12);
+      renderCanvas(); renderProps();
+    });
 
-    $('#smLabel').on('input', function () {
-      const w = getSelected();
-      if (!w || w.type !== 'action') return;
+    $("#smLabel").off("input change").on("input change", function(){
+      var w = widgetById(state.selectedId); if (!w || w.type!=="action") return;
       w.label = $(this).val();
-      $(`.sm-widget[data-id='${w.id}'] .sm-label`).text(w.label);
+      renderCanvas(); renderProps();
     });
 
-    // icon picker (modal)
-    $('#smPickIcon').on('click', function (e) {
+    $("#smSource").off("change").on("change", function(){
+      var w = widgetById(state.selectedId); if (!w || w.type!=="status") return;
+      w.source = $(this).val();
+      renderCanvas(); renderProps();
+    });
+
+    $("#smIconSize").off("input change").on("input change", function(){
+      var w = widgetById(state.selectedId); if (!w || w.type!=="action") return;
+      w.iconSize = clamp(toInt($(this).val(), 14), 8, 64);
+      renderCanvas(); renderProps();
+    });
+
+    $("#smPickIcon").off("click").on("click", function(e){
       e.preventDefault();
-      const w = getSelected();
-      if (!w || w.type !== 'action') return;
-      $('#smIconModalSearch').val(w.icon || '');
-      buildIconGrid();
-      filterIconGrid(w.icon || '');
-      $('#smIconModal').modal('show');
+      openIconModal();
     });
 
-    $('#smClearIcon').on('click', function(e){
+    $("#smPickCommand").off("click").on("click", function(e){
       e.preventDefault();
-      const w=getSelected();
-      if(!w||w.type!=='action') return;
-      w.icon='';
-      $('#smIconValue').val('');
-      renderCanvas();
-      setSelection(w.id);
+      openCommandModal();
     });
 
-    $('#smIconModalSearch').on('input', function () {
-      filterIconGrid($(this).val() || '');
+    $("#smDelete").off("click").on("click", function(){
+      var id = state.selectedId;
+      if (!id) return;
+      state.widgets = $.grep(state.widgets, function(x){ return x.id !== id; });
+      state.selectedId = null;
+      renderCanvas(); renderProps();
     });
-
-    $('#smIconGrid').on('click', '.sm-iconBtn', function () {
-      const w = getSelected();
-      if (!w || w.type !== 'action') return;
-      const icon = $(this).data('icon') || '';
-      w.icon = icon;
-      $('#smIconValue').val(icon);
-      renderCanvas();
-      setSelection(w.id);
-      $('#smIconModal').modal('hide');
-    });
-
-    $('#smIconValue').on('input change', function () {
-      const w = getSelected();
-      if (!w || w.type !== 'action') return;
-      w.icon = $(this).val().trim();
-      renderCanvas();
-      setSelection(w.id);
-    });
-
-    $('#smIconSize').on('input change', function () {
-      const w = getSelected();
-      if (!w || w.type !== 'action') return;
-      const v = parseInt($(this).val() || '14', 10);
-      w.iconSize = Math.max(8, Math.min(64, v));
-      renderCanvas();
-      setSelection(w.id);
-    });
-
-    // command picker (modal)
-    $('#smPickCommand').on('click', function (e) {
-      e.preventDefault();
-      const w = getSelected();
-      if (!w || w.type !== 'action') return;
-      openCommandModal(w);
-    });
-
-$('#smGridToggle').prop('checked', !!state.snap);
   }
 
-// --- Command modal helpers (BigButtons-like) ---
-function openCommandModal(w) {
-  // populate command dropdown
-  const $sel = $('#smCmdSelect');
-  $sel.empty();
-  (state.commands || []).forEach(c => {
-    const name = c.name || c.command || '';
-    if (!name) return;
-    const opt = $('<option/>').attr('value', name).text(name);
-    opt.data('desc', c.description || '');
-    opt.data('cmd', c);
-    $sel.append(opt);
-  });
-
-  // select current
-  if (w.command) $sel.val(w.command);
-
-  rebuildCmdArgsUI(w);
-
-  $sel.off('change').on('change', function () {
-    w.command = $(this).val();
-    w.args = w.args || {};
-    rebuildCmdArgsUI(w);
-  });
-
-  $('#smCmdDone').off('click').on('click', function () {
-    // read args from ui
-    const args = {};
-    $('#smCmdArgs [data-arg]').each(function () {
-      const key = $(this).data('arg');
-      if ($(this).attr('type') === 'checkbox') {
-        args[key] = $(this).is(':checked') ? 1 : 0;
-      } else {
-        args[key] = $(this).val();
+  // -------- icon modal --------
+  function allIcons() {
+    // supports faIcons array from fa-icons.js
+    if (window.faIcons && window.faIcons.length) {
+      var out = [];
+      for (var i=0;i<window.faIcons.length;i++) {
+        var it = window.faIcons[i];
+        if (typeof it === "string") { out.push(it); }
+        else if (it && typeof it === "object") {
+          // common shapes: {title:'fas fa-play'} or {name:'play'}
+          if (it.name) out.push(it.name);
+          else if (it.title) out.push(String(it.title).replace(/^fa[srb]?\s+fa-/, "").replace(/^fa-/, "").trim());
+        }
       }
-    });
-    // prune empty
-    Object.keys(args).forEach(k => {
-      if (args[k] === '' || args[k] === null || typeof args[k] === 'undefined') delete args[k];
-    });
-    w.args = args;
-
-    // update display + hidden fields
-    $('#smCommandDisplay').val(prettyCommandLabel(w.command, w.args));
-    $('#smCommand').val(w.command || '');
-    $('#smCommandArgsJson').val(JSON.stringify(w.args || {}));
-
-    $('#smCmdModal').modal('hide');
-    renderCanvas();
-    setSelection(w.id);
-  });
-
-  // set display
-  $('#smCommandDisplay').val(prettyCommandLabel(w.command, w.args));
-  $('#smCmdModal').modal('show');
-}
-
-function prettyCommandLabel(cmd, args) {
-  if (!cmd) return '';
-  if (cmd.toLowerCase().includes('playlist') && args && args.playlist) {
-    return `${cmd} (${args.playlist})`;
-  }
-  return cmd;
-}
-
-
-function rebuildCmdArgsUI(w) {
-  const $a = $('#smCmdArgs');
-  $a.empty();
-
-  const selectedCmdObj = $('#smCmdSelect option:selected').data('cmd') || null;
-  const desc = selectedCmdObj && selectedCmdObj.description ? selectedCmdObj.description : '';
-  if (desc) {
-    $('#smCmdDescText').text(desc);
-    $('#smCmdDescRow').show();
-  } else {
-    $('#smCmdDescRow').hide();
-    $('#smCmdDescText').text('');
+      return out;
+    }
+    return [];
   }
 
-  const cmdName = (w.command || '').toLowerCase();
-
-  // Start Playlist (BigButtons-like fields)
-  if (cmdName.includes('start') && cmdName.includes('playlist')) {
-    const args = w.args || {};
-    const pl = args.playlist || '';
-    const multisync = !!args.multisync;
-    const repeat = !!args.repeat;
-    const ifNotRunning = !!args.ifNotRunning;
-
-    const hosts = (args.multisyncHosts || '').toString();
-
-    $a.append(`
-      <tr id="smCmd_multisync_row"><td>Multisync:</td>
-        <td><input type="checkbox" data-arg="multisync" ${multisync ? 'checked' : ''}></td>
-      </tr>
-      <tr id="smCmd_playlist_row"><td>Playlist Name:</td>
-        <td>
-          <select class="form-control" data-arg="playlist" id="smCmd_playlist"></select>
-        </td>
-      </tr>
-      <tr id="smCmd_repeat_row"><td>Repeat:</td>
-        <td><input type="checkbox" data-arg="repeat" ${repeat ? 'checked' : ''}></td>
-      </tr>
-      <tr id="smCmd_ifnot_row"><td>If Not Running:</td>
-        <td><input type="checkbox" data-arg="ifNotRunning" ${ifNotRunning ? 'checked' : ''}></td>
-      </tr>
-      <tr id="smCmd_hosts_row" style="${multisync ? '' : 'display:none;'}"><td>Hosts:</td>
-        <td><input class="form-control" data-arg="multisyncHosts" placeholder="192.168.1.10,192.168.1.11" value="${escapeHtml(hosts)}"></td>
-      </tr>
-    `);
-
-    // populate playlists
-    const $plSel = $('#smCmd_playlist');
-    $plSel.empty().append(`<option value="" disabled ${!pl ? 'selected' : ''}>Select a Playlist</option>`);
-    (state.playlists || []).forEach(p => {
-      const opt = $('<option/>').attr('value', p).text(p);
-      $plSel.append(opt);
-    });
-    if (pl) $plSel.val(pl);
-
-    // multisync show/hide
-    $a.off('change', 'input[data-arg="multisync"]').on('change', 'input[data-arg="multisync"]', function(){
-      const on = $(this).is(':checked');
-      $('#smCmd_hosts_row').toggle(on);
-    });
-
-    return;
+  function openIconModal() {
+    $("#smIconFind").val("");
+    renderIconGrid(allIcons());
+    $("#smIconModal").modal("show");
   }
 
-  // Generic single argument
-  const arg = (w.args && (w.args.arg || w.args.value || w.args.text)) ? (w.args.arg || w.args.value || w.args.text) : '';
-  $a.append(`
-    <tr id="smCmd_arg_row"><td>Arg (optional):</td>
-      <td><input class="form-control" data-arg="arg" placeholder="Optional argument" value="${escapeHtml(arg)}"></td>
-    </tr>
-  `);
-}
+  function renderIconGrid(list) {
+    var $g = $("#smIconGrid"); $g.empty();
+    var w = widgetById(state.selectedId);
+    var cur = (w && w.icon) ? w.icon : "";
+    for (var i=0;i<list.length;i++) {
+      var name = list[i];
+      if (!name) continue;
+      var $b = $("<button type='button' class='smIconTile'></button>");
+      $b.attr("data-icon", name);
+      $b.html("<i class='fa fa-" + esc(name) + "'></i>");
+      if (name === cur) $b.addClass("active");
+      $g.append($b);
+    }
+    $g.find("button").off("click").on("click", function(){
+      var icon = $(this).attr("data-icon");
+      var w2 = widgetById(state.selectedId);
+      if (!w2 || w2.type!=="action") return;
+      w2.icon = icon;
+      $("#smIcon").val(icon);
+      $("#smIconModal").modal("hide");
+      renderCanvas(); renderProps();
+    });
+  }
 
-  // Generic arg input
-  $a.append(`
-    <div class="form-group row">
-      <label class="col-sm-3 col-form-label">Arg (optional):</label>
-      <div class="col-sm-9"><input class="form-control" data-arg="arg" value="${escapeHtml((w.args && w.args.arg) || '')}" placeholder="Optional argument" /></div>
-    </div>
-  `);
-}
+  // -------- command modal --------
+  function openCommandModal() {
+    var w = widgetById(state.selectedId);
+    if (!w || w.type!=="action") return;
 
-function init() {
-    try {
-      ensureCanvasSizing();
-      wireEvents();
-      applyZoomUI();
-      // Load data then config
-      fetchCommands().then(function(){ return fetchPlaylists(); })
-        .then(function(){ return loadConfig(); })
-        .then(function(){ renderCanvas(); renderProps(); })
-        .catch(function(e){ console.warn('Showmaster init warning', e); });
-    } catch (e) {
-      console.error('Showmaster init failed', e);
+    var $sel = $("#smCmdSelect"); $sel.empty();
+    $sel.append("<option value='' disabled>Select a Command</option>");
+    for (var i=0;i<state.commands.length;i++) {
+      var c = state.commands[i];
+      var name = (c && (c.name || c.command)) ? (c.name || c.command) : c;
+      var desc = (c && c.description) ? c.description : "";
+      if (!name) continue;
+      var $o = $("<option></option>").attr("value", name).text(name);
+      $o.attr("data-desc", desc);
+      $sel.append($o);
+    }
+
+    if (w.command) $sel.val(w.command);
+
+    $("#smCmdDesc").text($sel.find("option:selected").attr("data-desc") || "");
+    $("#smCmdArg").val(w.arg || "");
+
+    // playlist list
+    var $pl = $("#smCmdPlaylist"); $pl.empty();
+    for (var p=0;p<state.playlists.length;p++) {
+      var pl = state.playlists[p];
+      $pl.append($("<option></option>").attr("value", pl).text(pl));
+    }
+    $("#smCmdMultisync").prop("checked", !!(w.args && w.args.multisync));
+    $("#smCmdRepeat").prop("checked", !!(w.args && w.args.repeat));
+    $("#smCmdIfNotRunning").prop("checked", !!(w.args && w.args.ifNotRunning));
+    if (w.args && w.args.playlist) $pl.val(w.args.playlist);
+
+    updateCmdRows();
+
+    $sel.off("change").on("change", function(){
+      w.command = $(this).val();
+      $("#smCmdDesc").text($(this).find("option:selected").attr("data-desc") || "");
+      updateCmdRows();
+    });
+
+    $("#smCmdDone").off("click").on("click", function(){
+      w.command = $sel.val() || "";
+      w.arg = $("#smCmdArg").val() || "";
+      w.args = w.args || {};
+      w.args.multisync = $("#smCmdMultisync").is(":checked");
+      w.args.repeat = $("#smCmdRepeat").is(":checked");
+      w.args.ifNotRunning = $("#smCmdIfNotRunning").is(":checked");
+      w.args.playlist = $("#smCmdPlaylist").val() || "";
+      $("#smCmdModal").modal("hide");
+      renderProps();
+    });
+
+    $("#smCmdModal").modal("show");
+  }
+
+  function updateCmdRows() {
+    var cmd = $("#smCmdSelect").val() || "";
+    var isStartPlaylist = (cmd === "Start Playlist" || cmd === "StartPlaylist");
+    $("#smCmdPlaylistRow").toggle(isStartPlaylist);
+    $("#smCmdFlagsRow").toggle(isStartPlaylist);
+    $("#smCmdArgRow").toggle(!isStartPlaylist);
+  }
+
+  // -------- sources --------
+  var SOURCES = [
+    { id:"player.statusText", label:"Player: Status text" },
+    { id:"player.uptime", label:"Player: Uptime" },
+    { id:"player.currentPlaylist", label:"Player: Current playlist" },
+    { id:"player.currentSequence", label:"Player: Current sequence" },
+    { id:"player.mode", label:"Player: Mode" },
+    { id:"player.volume", label:"Player: Volume" },
+    { id:"system.cpuTemp", label:"System: CPU temp" },
+    { id:"system.ip", label:"System: IP address" }
+  ];
+  function prettySource(id) {
+    for (var i=0;i<SOURCES.length;i++) if (SOURCES[i].id === id) return SOURCES[i].label;
+    return id || "";
+  }
+  function fillSources() {
+    var $s = $("#smSource"); $s.empty();
+    for (var i=0;i<SOURCES.length;i++) {
+      $s.append($("<option></option>").attr("value", SOURCES[i].id).text(SOURCES[i].label));
     }
   }
 
-  // boot
-  $(function(){ init().catch(function(e){ console.error(e); toast('Init failed: ' + (e && e.message ? e.message : e), true); }); });
+  // -------- add widgets --------
+  function addAction() {
+    var w = normalizeWidget({
+      id: uid("action"),
+      type: "action",
+      x: 10, y: 10, w: 120, h: 44,
+      label: "Start Show",
+      icon: "play",
+      command: ""
+    });
+    state.widgets.push(w);
+    setSelection(w.id);
+  }
+  function addStatus() {
+    var w = normalizeWidget({
+      id: uid("status"),
+      type: "status",
+      x: 10, y: 70, w: 150, h: 28,
+      source: "player.statusText"
+    });
+    state.widgets.push(w);
+    setSelection(w.id);
+  }
+
+  // -------- save/load/push --------
+  function exportConfig() {
+    var out = { device: { w: DEVICE_W, h: DEVICE_H, bg: state.device.bg }, widgets: [] };
+    for (var i=0;i<state.widgets.length;i++) {
+      var w = normalizeWidget($.extend({}, state.widgets[i]));
+      // do not include internal selection state
+      out.widgets.push(w);
+    }
+    return out;
+  }
+
+  function loadConfig(obj) {
+    if (!obj) return;
+    if (obj.device && obj.device.bg) state.device.bg = obj.device.bg;
+    state.widgets = obj.widgets || [];
+    state.selectedId = null;
+    $("#smBgDevice").val(state.device.bg);
+    renderCanvas(); renderProps();
+  }
+
+  function apiGetConfig() {
+    return $.getJSON("api/configfile/plugin.showmaster.json?plugin=showmaster").then(function(r){
+      if (r && r.data) return r.data;
+      return r;
+    });
+  }
+  function apiSaveConfig(cfg) {
+    return $.ajax({
+      url: "api/configfile/plugin.showmaster.json?plugin=showmaster",
+      method: "POST",
+      contentType: "application/json",
+      data: JSON.stringify(cfg)
+    });
+  }
+
+  function apiFetchCommands() {
+    return $.getJSON("api/commands").then(function(r){
+      // FPP returns {commands:[...]} or [...]
+      var list = r && r.commands ? r.commands : r;
+      if (!$.isArray(list)) list = [];
+      state.commands = list;
+    }, function(){ state.commands = []; });
+  }
+  function apiFetchPlaylists() {
+    return $.getJSON("api/playlists").then(function(r){
+      var list = r && r.playlists ? r.playlists : r;
+      if (!$.isArray(list)) list = [];
+      // normalize to names
+      var out = [];
+      for (var i=0;i<list.length;i++) {
+        if (typeof list[i] === "string") out.push(list[i]);
+        else if (list[i] && list[i].name) out.push(list[i].name);
+      }
+      state.playlists = out;
+    }, function(){ state.playlists = []; });
+  }
+
+  function pushToShowmaster() {
+    var ip = ($("#smHost").val() || "").trim();
+    if (!ip) { toast("Enter Showmaster IP first.", true); return; }
+    // naive validation: must contain digit/dot/colon
+    if (!/^[0-9a-fA-F\.\:\-]+$/.test(ip)) { toast("Invalid IP/host.", true); return; }
+
+    var cfg = exportConfig();
+    $("#smPush").prop("disabled", true);
+    $.ajax({
+      url: "api/push.php",
+      method: "POST",
+      dataType: "json",
+      data: { host: ip, json: JSON.stringify(cfg) }
+    }).done(function(resp){
+      if (resp && resp.ok) toast("Pushed to Showmaster.", false);
+      else toast((resp && resp.error) ? resp.error : "Push failed.", true);
+    }).fail(function(xhr){
+      toast("Push failed (" + xhr.status + ").", true);
+    }).always(function(){ $("#smPush").prop("disabled", false); });
+  }
+
+  // -------- init --------
+  function wireUi() {
+    fillSources();
+
+    $("#smCanvas").off("mousedown").on("mousedown", function(){ state.selectedId = null; renderCanvas(); renderProps(); });
+
+    $("#smAddAction").off("click").on("click", function(e){ e.preventDefault(); addAction(); });
+    $("#smAddStatus").off("click").on("click", function(e){ e.preventDefault(); addStatus(); });
+
+    $("#smSave").off("click").on("click", function(){
+      var cfg = exportConfig();
+      apiSaveConfig(cfg).done(function(){ toast("Saved.", false); }).fail(function(){ toast("Save failed.", true); });
+    });
+
+    $("#smLoad").off("click").on("click", function(){
+      apiGetConfig().done(function(cfg){ loadConfig(cfg); toast("Loaded.", false); }).fail(function(){ toast("Load failed.", true); });
+    });
+
+    $("#smPush").off("click").on("click", function(e){ e.preventDefault(); pushToShowmaster(); });
+
+    $("#smBgDevice").off("input change").on("input change", function(){
+      state.device.bg = $(this).val();
+      $("#smCanvas").css("backgroundColor", state.device.bg);
+    });
+
+    $("#smSnap").off("change").on("change", function(){
+      state.snap = $(this).is(":checked");
+      renderCanvas();
+    });
+
+    $("#smZoom").off("input change").on("input change", function(){
+      state.zoom = toInt($(this).val(), 200);
+      renderCanvas();
+    });
+
+    bindProps();
+
+    // icon find
+    $("#smIconFind").off("input").on("input", function(){
+      var q = ($(this).val() || "").toLowerCase();
+      var all = allIcons();
+      if (!q) return renderIconGrid(all);
+      var filtered = [];
+      for (var i=0;i<all.length;i++) if (String(all[i]).toLowerCase().indexOf(q) >= 0) filtered.push(all[i]);
+      renderIconGrid(filtered);
+    });
+  }
+
+  function boot() {
+    wireUi();
+    $("#smBgDevice").val(state.device.bg);
+    $("#smSnap").prop("checked", state.snap);
+    $("#smZoom").val(state.zoom);
+    renderCanvas();
+    renderProps();
+
+    // fetch data then load config
+    $.when(apiFetchCommands(), apiFetchPlaylists()).always(function(){
+      apiGetConfig().done(function(cfg){
+        if (cfg && cfg.widgets) loadConfig(cfg);
+      });
+    });
+  }
+
+  $(boot);
 })();
