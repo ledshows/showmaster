@@ -134,8 +134,13 @@
     });
 
     // draggable/resizable in scaled space
-    $el.draggable("destroy");
-    $el.resizable("destroy");
+    // Elements are freshly created on each renderCanvas(), so they may not have
+    // draggable/resizable initialized yet. Calling destroy() unconditionally
+    // throws: "cannot call methods on draggable prior to initialization".
+    // If this element ever gets reused in the future, we safely destroy only
+    // when initialized.
+    try { if ($el.data('ui-draggable')) { $el.draggable('destroy'); } } catch(e) {}
+    try { if ($el.data('ui-resizable')) { $el.resizable('destroy'); } } catch(e) {}
 
     $el.draggable({
       containment: "#smCanvas",
