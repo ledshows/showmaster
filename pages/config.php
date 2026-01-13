@@ -33,6 +33,14 @@
           <span class="sm-toolLabel">Background</span>
           <input id="smCanvasBg" type="color" value="#0b1020" title="Canvas background" />
           <label class="sm-check"><input id="smGridToggle" type="checkbox" checked /> Snap</label>
+          <span class="sm-toolLabel sm-ml">Zoom</span>
+          <select id="smZoom" class="sm-zoom">
+            <option value="1" selected>100%</option>
+            <option value="1.5">150%</option>
+            <option value="2">200%</option>
+            <option value="2.5">250%</option>
+            <option value="3">300%</option>
+          </select>
         </div>
       </div>
       <div id="smCanvas" class="sm-canvas" aria-label="Showmaster canvas">
@@ -97,6 +105,22 @@
           <input id="smBorder" type="color" />
         </div>
 
+        <div class="sm-row2">
+          <div class="sm-field">
+            <label>Text size</label>
+            <input id="smFontSize" type="number" min="8" max="32" step="1" />
+          </div>
+          <div class="sm-field">
+            <label>Border size</label>
+            <input id="smBorderSize" type="number" min="0" max="10" step="1" />
+          </div>
+        </div>
+        <div class="sm-field">
+          <label>Corner radius</label>
+          <input id="smRadius" type="number" min="0" max="30" step="1" />
+        </div>
+
+
 	<div id="smActionFields">
           <div class="sm-field">
             <label>Label</label>
@@ -107,13 +131,25 @@
             <select id="smCommand"></select>
           </div>
 
+          <div id="smCmdArgs" class="sm-cmdArgs">
+            <div class="sm-field" id="smPlaylistField" style="display:none">
+              <label>Playlist</label>
+              <select id="smPlaylist"></select>
+            </div>
+            <div class="sm-field" id="smArgField" style="display:none">
+              <label>Arg (optional)</label>
+              <input id="smArg" placeholder="e.g. effect name, or JSON" maxlength="120" />
+            </div>
+          </div>
+
+
           <div class="sm-field">
             <label>Icon</label>
             <div class="sm-iconRow">
               <input id="smIconSearch" placeholder="Search icon (e.g. play, power-off)" maxlength="32" />
               <select id="smIconPick"></select>
             </div>
-            <div class="sm-iconHint">Uses Font Awesome names (like BigButtons). Stored as plain name (e.g. <code>play</code>).</div>
+            <div class="sm-iconHint">Uses Font Awesome icon names. Stored as plain name (e.g. <code>play</code>).</div>
           </div>
         </div>
 

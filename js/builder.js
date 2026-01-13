@@ -9,13 +9,20 @@
   const GRID = 10;
 
   const STATUS_SOURCES = [
-    { id: 'player.statusText', label: 'player.statusText' },
-    { id: 'player.uptime', label: 'player.uptime' },
-    { id: 'player.currentPlaylist', label: 'player.currentPlaylist' },
-    { id: 'player.currentSequence', label: 'player.currentSequence' },
-    { id: 'player.mode', label: 'player.mode' },
-    { id: 'player.volume', label: 'player.volume' }
-  ];
+  { id: 'player.statusText', label: 'Player: Status text' },
+  { id: 'player.mode', label: 'Player: Mode' },
+  { id: 'player.volume', label: 'Player: Volume' },
+  { id: 'player.uptime', label: 'Player: Uptime' },
+  { id: 'player.currentPlaylist', label: 'Player: Current playlist' },
+  { id: 'player.currentSequence', label: 'Player: Current sequence' },
+
+  { id: 'system.hostname', label: 'System: Hostname' },
+  { id: 'system.ip', label: 'System: IP address' },
+  { id: 'system.cpuTemp', label: 'System: CPU temp' },
+  { id: 'system.cpuLoad', label: 'System: CPU load' },
+  { id: 'system.mem', label: 'System: Memory' },
+  { id: 'system.disk', label: 'System: Disk' }
+];
 
   let state = {
     device: { w: DEVICE_W, h: DEVICE_H, bg: '#05070d' },
@@ -25,6 +32,7 @@
 
   let selectedId = null;
   let commandsCache = [];
+  let playlistsCache = [];
 
   function uid(prefix) {
     const r = Math.random().toString(16).slice(2, 10);
@@ -67,6 +75,10 @@
     if (w.bg === undefined) w.bg = (w.type === 'action') ? '#0b1220' : '#111827';
     if (w.fg === undefined) w.fg = '#e8f9ff';
     if (w.border === undefined) w.border = '#00e5ff';
+    if (w.borderSize === undefined) w.borderSize = 2;
+    if (w.radius === undefined) w.radius = 10;
+    if (w.fontSize === undefined) w.fontSize = (w.type === 'status') ? 11 : 12;
+    if (w.args === undefined) w.args = {};
     if (w.type === 'action') {
       w.label = (w.label ?? 'Button').toString();
       w.command = (w.command ?? '').toString();
@@ -84,108 +96,121 @@
     renderProps();
   }
 
-  function renderCanvas() {
-    const $canvas = $('#smCanvas');
-    $canvas.find('.sm-widget').remove();
+  
+function renderCanvas() {
+  const $canvas = $('#smCanvas');
+  $canvas.empty().append('<div class="sm-grid"></div>');
+  $('.sm-grid', $canvas).toggle(!!state.snap);
 
-    state.widgets.forEach(w => {
-      const $el = $('<div class="sm-widget" />');
-      $el.attr('data-id', w.id);
-      $el.attr('data-type', w.type);
-      $el.css({ left: w.x, top: w.y, width: w.w, height: w.h, background: w.bg, color: w.fg, borderColor: w.border });
+  state.widgets.forEach(w => {
+    w = normalizeWidget(w);
 
-      if (w.type === 'action') {
-        const icon = (w.icon || '').trim();
-        const iconClass = iconToFaClass(icon);
-        const iconHtml = iconClass ? `<i class="${escapeHtml(iconClass)} sm-fa"></i>` : '';
-        $el.addClass('sm-action').html(`
-          <div class="sm-inner">
-            ${iconHtml}
-            <span class="sm-label">${escapeHtml(w.label || 'Button')}</span>
-          </div>
-        `);
-      } else {
-        $el.addClass('sm-status').html(`
-          <div class="sm-inner">
-            <span class="sm-label">${escapeHtml(w.source || 'player.statusText')}</span>
-          </div>
-        `);
-      }
-
-      $el.on('mousedown', (e) => {
-        e.stopPropagation();
-        setSelection(w.id);
-      });
-
-      $canvas.append($el);
-
-      if ($.fn.draggable && $.fn.resizable) {
-        $el.draggable({
-          containment: 'parent',
-          grid: state.snap ? [GRID, GRID] : false,
-          scroll: false,
-          start: () => setSelection(w.id),
-          drag: (e, ui) => {
-            w.x = Math.round(ui.position.left);
-            w.y = Math.round(ui.position.top);
-            syncPropsXYWH(w);
-
-    // widget colors
-    $('#smBg').val(w.bg || '#0b1220');
-    $('#smFg').val(w.fg || '#e8f9ff');
-    $('#smBorder').val(w.border || '#00e5ff');
-          },
-          stop: (e, ui) => {
-            w.x = Math.round(ui.position.left);
-            w.y = Math.round(ui.position.top);
-            normalizeWidget(w);
-            $el.css({ left: w.x, top: w.y, background: w.bg, color: w.fg, borderColor: w.border });
-            syncPropsXYWH(w);
-
-    // widget colors
-    $('#smBg').val(w.bg || '#0b1220');
-    $('#smFg').val(w.fg || '#e8f9ff');
-    $('#smBorder').val(w.border || '#00e5ff');
-          }
-        }).resizable({
-          containment: 'parent',
-          grid: state.snap ? [GRID, GRID] : false,
-          handles: 'n,e,s,w,ne,se,sw,nw',
-          start: () => setSelection(w.id),
-          resize: (e, ui) => {
-            w.x = Math.round(ui.position.left);
-            w.y = Math.round(ui.position.top);
-            w.w = Math.round(ui.size.width);
-            w.h = Math.round(ui.size.height);
-            syncPropsXYWH(w);
-
-    // widget colors
-    $('#smBg').val(w.bg || '#0b1220');
-    $('#smFg').val(w.fg || '#e8f9ff');
-    $('#smBorder').val(w.border || '#00e5ff');
-          },
-          stop: (e, ui) => {
-            w.x = Math.round(ui.position.left);
-            w.y = Math.round(ui.position.top);
-            w.w = Math.round(ui.size.width);
-            w.h = Math.round(ui.size.height);
-            normalizeWidget(w);
-            $el.css({ left: w.x, top: w.y, width: w.w, height: w.h, background: w.bg, color: w.fg, borderColor: w.border });
-            syncPropsXYWH(w);
-
-    // widget colors
-    $('#smBg').val(w.bg || '#0b1220');
-    $('#smFg').val(w.fg || '#e8f9ff');
-    $('#smBorder').val(w.border || '#00e5ff');
-          }
-        });
-      }
+    const $el = $('<div class="sm-widget"></div>');
+    $el.attr('data-id', w.id);
+    $el.css({
+      left: w.x,
+      top: w.y,
+      width: w.w,
+      height: w.h,
+      background: w.bg,
+      color: w.fg,
+      borderColor: w.border,
+      borderWidth: (w.borderSize ?? 2) + 'px',
+      borderStyle: 'solid',
+      borderRadius: (w.radius ?? 10) + 'px',
+      fontSize: (w.fontSize ?? (w.type === 'status' ? 11 : 12)) + 'px'
     });
 
-    if (selectedId) {
-      $(`.sm-widget[data-id='${selectedId}']`).addClass('sm-selected');
+    if (w.type === 'action') {
+      $el.addClass('sm-action').html(`
+        <div class="sm-inner">
+          <span class="sm-icon">${w.icon ? `<i class="fas fa-${escapeHtml(w.icon)}"></i>` : ''}</span>
+          <span class="sm-label">${escapeHtml(w.label || 'Button')}</span>
+        </div>
+      `);
+    } else {
+      $el.addClass('sm-status').html(`
+        <div class="sm-inner">
+          <span class="sm-label">${escapeHtml(prettySourceLabel(w.source) || w.source || 'Status')}</span>
+        </div>
+      `);
     }
+
+    $el.on('mousedown', (e) => {
+      e.stopPropagation();
+      setSelection(w.id);
+    });
+
+    $canvas.append($el);
+
+    if ($.fn.draggable && $.fn.resizable) {
+      $el.draggable({
+        containment: 'parent',
+        grid: state.snap ? [GRID, GRID] : false,
+        scroll: false,
+        start: () => setSelection(w.id),
+        drag: (e, ui) => {
+          w.x = Math.round(ui.position.left);
+          w.y = Math.round(ui.position.top);
+          syncPropsXYWH(w);
+        },
+        stop: (e, ui) => {
+          let nx = Math.round(ui.position.left);
+          let ny = Math.round(ui.position.top);
+          if (state.snap) {
+            nx = Math.round(nx / GRID) * GRID;
+            ny = Math.round(ny / GRID) * GRID;
+          }
+          w.x = clamp(nx, 0, DEVICE_W - w.w);
+          w.y = clamp(ny, 0, DEVICE_H - w.h);
+          $el.css({ left: w.x, top: w.y });
+          syncPropsXYWH(w);
+        }
+      });
+
+      $el.resizable({
+        containment: 'parent',
+        grid: state.snap ? GRID : false,
+        handles: 'n,e,s,w,ne,se,sw,nw',
+        start: () => setSelection(w.id),
+        resize: (e, ui) => {
+          w.x = Math.round(ui.position.left);
+          w.y = Math.round(ui.position.top);
+          w.w = Math.round(ui.size.width);
+          w.h = Math.round(ui.size.height);
+          syncPropsXYWH(w);
+        },
+        stop: (e, ui) => {
+          let nx = Math.round(ui.position.left);
+          let ny = Math.round(ui.position.top);
+          let nw = Math.round(ui.size.width);
+          let nh = Math.round(ui.size.height);
+
+          if (state.snap) {
+            nx = Math.round(nx / GRID) * GRID;
+            ny = Math.round(ny / GRID) * GRID;
+            nw = Math.max(10, Math.round(nw / GRID) * GRID);
+            nh = Math.max(10, Math.round(nh / GRID) * GRID);
+          }
+
+          w.w = clamp(nw, 10, DEVICE_W);
+          w.h = clamp(nh, 10, DEVICE_H);
+          w.x = clamp(nx, 0, DEVICE_W - w.w);
+          w.y = clamp(ny, 0, DEVICE_H - w.h);
+
+          $el.css({ left: w.x, top: w.y, width: w.w, height: w.h });
+          syncPropsXYWH(w);
+        }
+      });
+    }
+  });
+
+  if (selectedId) {
+    $(`[data-id='${selectedId}']`).addClass('sm-selected');
   }
+}
+
+
 
   function iconToFaClass(name) {
     name = (name || '').trim();
@@ -220,10 +245,14 @@
 
     syncPropsXYWH(w);
 
-    // widget colors
-    $('#smBg').val(w.bg || '#0b1220');
-    $('#smFg').val(w.fg || '#e8f9ff');
-    $('#smBorder').val(w.border || '#00e5ff');
+    
+// widget colors
+$('#smBg').val(w.bg || '#0b1220');
+$('#smFg').val(w.fg || '#e8f9ff');
+$('#smBorder').val(w.border || '#00e5ff');
+$('#smFontSize').val(w.fontSize ?? ((w.type === 'status') ? 11 : 12));
+$('#smBorderSize').val(w.borderSize ?? 2);
+$('#smRadius').val(w.radius ?? 10);
 
     if (w.type === 'action') {
       $('#smActionFields').show();
@@ -233,6 +262,7 @@
       // command select options
       populateCommandsSelect();
       $('#smCommand').val(w.command || '');
+      updateCmdArgsUI(w);
 
       populateIconPicker();
       $('#smIconSearch').val(w.icon || '');
@@ -262,12 +292,25 @@
     });
   }
 
+function prettySourceLabel(id) {
+  const f = STATUS_SOURCES.find(x => x.id === id);
+  return f ? f.label : id;
+}
 
   function getFaIconList() {
-    if (Array.isArray(window.faIcons)) return window.faIcons;
-    if (Array.isArray(window.icons)) return window.icons;
-    return [];
-  }
+  const raw = Array.isArray(window.faIcons) ? window.faIcons
+            : (Array.isArray(window.icons) ? window.icons : []);
+  // raw can be ["play", ...] or [{title:"fas fa-play"}, ...]
+  return raw.map(x => {
+    if (typeof x === 'string') return x;
+    if (x && typeof x === 'object') {
+      const t = String(x.title || x.name || '');
+      const m = t.match(/fa-([a-z0-9-]+)/i);
+      return m ? m[1] : t;
+    }
+    return String(x || '');
+  }).filter(Boolean);
+}
 
   function populateIconPicker() {
     const $pick = $('#smIconPick');
@@ -340,6 +383,54 @@
     }
   }
 
+async function fetchPlaylists() {
+  try {
+    const resp = await fetch('/api/playlists');
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const json = await resp.json();
+    let list = [];
+    if (Array.isArray(json)) list = json;
+    else if (Array.isArray(json.playlists)) list = json.playlists;
+    else if (Array.isArray(json.data)) list = json.data;
+    playlistsCache = list.map(x => (typeof x === 'string' ? x : (x.name || x.playlist || x.id || ''))).filter(Boolean);
+    playlistsCache.sort((a,b) => a.localeCompare(b));
+  } catch (e) {
+    playlistsCache = [];
+    console.warn('Showmaster: could not load /api/playlists', e);
+  }
+}
+
+function populatePlaylistsSelect() {
+  const $p = $('#smPlaylist');
+  $p.empty();
+  $p.append('<option value="">(select)</option>');
+  playlistsCache.forEach(name => {
+    $p.append(`<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`);
+  });
+}
+
+function updateCmdArgsUI(w) {
+  const cmd = (w.command || '').toLowerCase();
+  const wantsPlaylist = cmd.includes('startplaylist') || cmd.includes('stopplaylist') || cmd.includes('start_playlist');
+  const wantsArg = (!wantsPlaylist && cmd.length > 0);
+
+  $('#smPlaylistField').toggle(wantsPlaylist);
+  $('#smArgField').toggle(wantsArg);
+
+  if (wantsPlaylist) {
+    populatePlaylistsSelect();
+    $('#smPlaylist').val((w.args && (w.args.playlist || w.args.Playlist)) || '');
+  } else {
+    $('#smPlaylist').val('');
+  }
+
+  if (wantsArg) {
+    $('#smArg').val((w.args && (w.args.arg || w.args.value)) || '');
+  } else {
+    $('#smArg').val('');
+  }
+}
+
   function addWidget(type) {
     const base = {
       id: uid(type),
@@ -354,6 +445,10 @@
     base.bg = (type === 'action') ? '#0b1220' : '#111827';
     base.fg = '#e8f9ff';
     base.border = '#00e5ff';
+    base.borderSize = 2;
+    base.radius = 10;
+    base.fontSize = (type === 'status') ? 11 : 12;
+    base.args = {};
 
     if (type === 'action') {
       base.label = 'Button';
@@ -375,6 +470,7 @@
     selectedId = null;
     $('#smCanvas').css({ background: state.device.bg || '#05070d' });
     $('#smCanvasBg').val(state.device.bg || '#05070d');
+    $('#smGridToggle').prop('checked', !!state.snap);
     renderCanvas();
     renderProps();
   }
@@ -453,45 +549,47 @@
     selectedId = null;
     $('#smCanvas').css({ background: state.device.bg || '#05070d' });
     $('#smCanvasBg').val(state.device.bg || '#05070d');
+    $('#smGridToggle').prop('checked', !!state.snap);
     renderCanvas();
     renderProps();
   }
 
-  async function uploadToDevice() {
-    const ip = ($('#smDeviceIp').val() || '').trim();
-    if (!ip) {
-      toast('Enter device IP.', true);
-      $('#smDeviceIp').focus();
+  
+async function uploadToShowmaster() {
+  const ip = ($('#smDeviceIp').val() || '').trim();
+  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) {
+    toast('Enter a valid Showmaster IP address (e.g. 192.168.1.50).', true);
+    $('#smDeviceIp').focus();
+    return;
+  }
+
+  const config = toExport();
+
+  try {
+    const resp = await fetch(`plugin.php?plugin=showmaster&file=api/push.php&nopage=1`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ip, config })
+    });
+
+    const txt = await resp.text();
+    let json = null;
+    try { json = JSON.parse(txt); } catch (e) {}
+
+    if (!resp.ok) {
+      const msg = (json && (json.error || json.message)) ? (json.error || json.message) : `Push failed (HTTP ${resp.status})`;
+      toast(msg, true);
       return;
     }
 
-    try {
-      const payload = {
-        ip,
-        config: toExport()
-      };
-
-      const resp = await fetch('plugin.php?plugin=showmaster&file=api/push.php&nopage=1', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      const txt = await resp.text();
-      let data = null;
-      try { data = JSON.parse(txt); } catch { /* ignore */ }
-
-      if (!resp.ok || (data && data.ok === false)) {
-        const msg = (data && data.error) ? data.error : `Upload failed (HTTP ${resp.status})`;
-        throw new Error(msg);
-      }
-
-      toast('Uploaded to device.');
-    } catch (e) {
-      console.error(e);
-      toast(String(e.message || e), true);
-    }
+    toast((json && json.message) ? json.message : 'Pushed to Showmaster.', false);
+  } catch (e) {
+    console.error(e);
+    toast('Push failed. Check network/IP.', true);
   }
+}
+
+
 
   function wirePropsInputs() {
     function applyNumeric(id, key, max) {
@@ -505,7 +603,7 @@
         normalizeWidget(w);
 
         const $el = $(`.sm-widget[data-id='${w.id}']`);
-        $el.css({ left: w.x, top: w.y, width: w.w, height: w.h, background: w.bg, color: w.fg, borderColor: w.border });
+        $el.css({ left: w.x, top: w.y, width: w.w, height: w.h, background: w.bg, color: w.fg, borderColor: w.border, borderWidth: (w.borderSize??2)+'px', borderRadius: (w.radius??10)+'px', fontSize: (w.fontSize??12)+'px' });
       });
     }
 
@@ -534,13 +632,29 @@
       const w = getSelected();
       if (!w || w.type !== 'action') return;
       w.command = $(this).val();
+      w.args = {};
+      updateCmdArgsUI(w);
+    });
+
+    $('#smPlaylist').on('change', function () {
+      const w = getSelected();
+      if (!w || w.type !== 'action') return;
+      if (!w.args) w.args = {};
+      w.args.playlist = $(this).val();
+    });
+
+    $('#smArg').on('input', function () {
+      const w = getSelected();
+      if (!w || w.type !== 'action') return;
+      if (!w.args) w.args = {};
+      w.args.arg = $(this).val();
     });
 
     $('#smSource').on('change', function () {
       const w = getSelected();
       if (!w || w.type !== 'status') return;
       w.source = $(this).val();
-      $(`.sm-widget[data-id='${w.id}'] .sm-label`).text(w.source);
+      $(`.sm-widget[data-id='${w.id}'] .sm-label`).text(prettySourceLabel(w.source));
     });
 
 
@@ -559,11 +673,41 @@
     applyColor('#smFg', 'fg');
     applyColor('#smBorder', 'border');
 
+// sizing styles
+$('#smFontSize').on('input', function () {
+  const w = getSelected();
+  if (!w) return;
+  w.fontSize = clamp($(this).val(), 8, 32);
+  $(`.sm-widget[data-id='${w.id}']`).css({ fontSize: w.fontSize + 'px' });
+});
+
+$('#smBorderSize').on('input', function () {
+  const w = getSelected();
+  if (!w) return;
+  w.borderSize = clamp($(this).val(), 0, 10);
+  $(`.sm-widget[data-id='${w.id}']`).css({ borderWidth: w.borderSize + 'px' });
+});
+
+$('#smRadius').on('input', function () {
+  const w = getSelected();
+  if (!w) return;
+  w.radius = clamp($(this).val(), 0, 30);
+  $(`.sm-widget[data-id='${w.id}']`).css({ borderRadius: w.radius + 'px' });
+});
+
+
     // device background
     $('#smCanvasBg').on('input', function () {
       state.device.bg = $(this).val();
       $('#smCanvas').css({ background: state.device.bg || '#05070d' });
     });
+
+
+// zoom (visual only)
+$('#smZoom').on('change', function () {
+  const z = parseFloat($(this).val() || '1');
+  $('#smCanvas').css('zoom', z);
+});
 
     // icon picker
     $('#smIconSearch').on('input', function () {
@@ -618,7 +762,7 @@
     $('#smDelete').on('click', deleteSelected);
     $('#smSave').on('click', saveConfig);
     $('#smLoad').on('click', loadConfig);
-    $('#smUpload').on('click', uploadToDevice);
+    $('#smUpload').on('click', uploadToShowmaster);
 
     // del key
     $(document).on('keydown', function (e) {
@@ -633,6 +777,7 @@
 
     wirePropsInputs();
     await fetchCommands();
+    await fetchPlaylists();
     await loadConfig();
 
     if (!($.fn.draggable && $.fn.resizable)) {

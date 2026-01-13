@@ -5,14 +5,18 @@
 header('Content-Type: application/json');
 
 function respond($ok, $msg, $extra = array()) {
-    $out = array_merge(array('ok' => $ok, 'msg' => $msg), $extra);
+    $out = array_merge(array('ok' => $ok), $extra);
+    if ($ok) $out['message'] = $msg;
+    else $out['error'] = $msg;
     echo json_encode($out);
     exit;
 }
 
+
 $body = file_get_contents('php://input');
 if ($body === false || $body === '') {
-    respond(false, 'Missing request body');
+    http_response_code(400);
+respond(false, 'Missing request body');
 }
 
 $req = json_decode($body, true);
