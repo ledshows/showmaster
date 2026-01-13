@@ -34,7 +34,7 @@
           <input id="smCanvasBg" type="color" value="#0b1020" title="Canvas background" />
           <label class="sm-check"><input id="smGridToggle" type="checkbox" checked /> Snap</label>
           <span class="sm-toolLabel sm-ml">Zoom</span>
-          <input id="smZoom" class="sm-zoomSlider" type="range" min="0" max="300" step="25" value="200" />
+          <input id="smZoom" class="sm-zoomSlider" type="range" min="100" max="300" step="25" value="200" />
           <span id="smZoomLabel" class="sm-zoomLabel">200%</span>
         </div>
       </div>

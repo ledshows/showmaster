@@ -26,8 +26,8 @@
 
   function getZoomPercent() {
     var v = toInt($("#smZoom").val(), state.zoom);
-    if (v <= 0) v = 100; // 0 means original size
-    return clamp(v, 50, 300);
+    if (v < 100) v = 100;
+    return clamp(v, 100, 300);
   }
   function getScale() { return getZoomPercent() / 100.0; }
 
@@ -67,14 +67,22 @@
     var s = getScale();
     var cw = Math.round(DEVICE_W * s);
     var ch = Math.round(DEVICE_H * s);
-    $("#smCanvasWrap").css({ width: cw + "px", height: ch + "px" });
-    $("#smCanvas").css({ width: cw + "px", height: ch + "px", backgroundColor: state.device.bg });
-    $("#smCanvas").toggleClass("snap-on", !!state.snap);
-    // scale grid
-    $("#smCanvas").css("background-size", (GRID*s) + "px " + (GRID*s) + "px");
-    // label
+    // Resize the canvas itself (no CSS transforms) so jQueryUI drag behaves correctly.
+    $("#smCanvas").css({ width: cw + "px", height: ch + "px" });
+
+    // Apply background base color via CSS variable so gradients remain.
+    try {
+      document.getElementById("smCanvas").style.setProperty("--smCanvasBg", state.device.bg || "#070a12");
+    } catch(e) {}
+
+    // Scale grid overlay with zoom.
+    $("#smCanvas .sm-grid").css("background-size", (GRID*s) + "px " + (GRID*s) + "px");
+
+    // Label
     $("#smZoomLabel").text(getZoomPercent() === 100 ? "Original size" : (getZoomPercent() + "%"));
   }
+
+
 
   function applyWidgetCss($el, w) {
     var s = getScale();
@@ -108,6 +116,7 @@
   function renderCanvas() {
     ensureCanvasSizing();
     var $c = $("#smCanvas");
+    document.getElementById('smCanvas').style.setProperty('--smCanvasBg', state.device.bg || '#070a12');
     $c.empty();
 
     for (var i=0;i<state.widgets.length;i++) {
@@ -129,8 +138,11 @@
     var s = getScale();
 
     $el.off("mousedown").on("mousedown", function(e){
+      // do NOT re-render on mousedown, it breaks jQueryUI drag start
       e.stopPropagation();
-      setSelection(w.id);
+      state.selectedId = w.id;
+      highlightSelection(w.id);
+      renderProps();
     });
 
     // draggable/resizable in scaled space
@@ -145,6 +157,11 @@
     $el.draggable({
       containment: "#smCanvas",
       grid: state.snap ? [GRID*s, GRID*s] : false,
+      start: function(evt, ui){
+        state.selectedId = w.id;
+        highlightSelection(w.id);
+        renderProps();
+      },
       stop: function(evt, ui){
         var s2 = getScale();
         w.x = Math.round(ui.position.left / s2);
@@ -159,6 +176,11 @@
     $el.resizable({
       containment: "#smCanvas",
       grid: state.snap ? [GRID*s, GRID*s] : false,
+      start: function(evt, ui){
+        state.selectedId = w.id;
+        highlightSelection(w.id);
+        renderProps();
+      },
       handles: "n,e,s,w,se,sw,ne,nw",
       stop: function(evt, ui){
         var s2 = getScale();
@@ -177,11 +199,24 @@
     });
   }
 
-  function setSelection(id) {
-    state.selectedId = id;
-    renderCanvas();
-    renderProps();
+  function highlightSelection(id){
+    try{
+      $('#smCanvas .sm-widget').removeClass('is-selected');
+      if(id){ $('#smCanvas .sm-widget[data-id="'+id+'"]').addClass('is-selected'); }
+    }catch(e){}
   }
+
+  function setSelection(id, forceRender){
+    state.selectedId = id;
+    if(forceRender){
+      renderCanvas();
+    } else {
+      highlightSelection(id);
+    }
+    renderProps();
+  
+    highlightSelection(state.selectedId);
+}
 
   // -------- properties panel --------
   function renderProps() {
@@ -455,7 +490,7 @@
     if (obj.device && obj.device.bg) state.device.bg = obj.device.bg;
     state.widgets = obj.widgets || [];
     state.selectedId = null;
-    $("#smBgDevice").val(state.device.bg);
+    $("#smCanvasBg").val(state.device.bg);
     renderCanvas(); renderProps();
   }
 
@@ -537,12 +572,12 @@
 
     $("#smPush").off("click").on("click", function(e){ e.preventDefault(); pushToShowmaster(); });
 
-    $("#smBgDevice").off("input change").on("input change", function(){
+    $("#smCanvasBg").off("input change").on("input change", function(){
       state.device.bg = $(this).val();
-      $("#smCanvas").css("backgroundColor", state.device.bg);
+      document.getElementById("smCanvas").style.setProperty("--smCanvasBg", state.device.bg);
     });
 
-    $("#smSnap").off("change").on("change", function(){
+    $("#smGridToggle").off("change").on("change", function(){
       state.snap = $(this).is(":checked");
       renderCanvas();
     });
@@ -567,8 +602,8 @@
 
   function boot() {
     wireUi();
-    $("#smBgDevice").val(state.device.bg);
-    $("#smSnap").prop("checked", state.snap);
+    $("#smCanvasBg").val(state.device.bg);
+    $("#smGridToggle").prop("checked", state.snap);
     $("#smZoom").val(state.zoom);
     renderCanvas();
     renderProps();
