@@ -1,0 +1,158 @@
+<?php
+// Showmaster Builder main page
+?>
+<link rel="stylesheet" href="plugin.php?plugin=showmaster&file=css/style.css&nopage=1" />
+
+<div class="sm-wrap">
+  <div class="sm-topbar">
+    <div class="sm-brand">
+      <div class="sm-logo">SM</div>
+      <div>
+        <div class="sm-title">Showmaster Builder</div>
+        <div class="sm-subtitle">Canvas 320×240 • Drag • Resize • Push to ESP32</div>
+      </div>
+    </div>
+
+    <div class="sm-actions">
+      <button class="buttons btn-outline-light" id="smAddAction">+ Action</button>
+      <button class="buttons btn-outline-light" id="smAddStatus">+ Status</button>
+      <button class="buttons btn-success" id="smSave">Save</button>
+      <button class="buttons btn-outline-light" id="smLoad">Load</button>
+      <div class="sm-upload">
+        <input class="sm-ip" id="smDeviceIp" placeholder="ESP32 IP (e.g. 192.168.1.50)" />
+        <button class="buttons btn-primary" id="smUpload">Upload to Device</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sm-body">
+    <div class="sm-canvasShell">
+      <div class="sm-canvasTitle">
+        Device Preview (exact size)
+        <div class="sm-canvasTools">
+          <span class="sm-toolLabel">Background</span>
+          <input id="smCanvasBg" type="color" value="#0b1020" title="Canvas background" />
+          <label class="sm-check"><input id="smGridToggle" type="checkbox" checked /> Grid</label>
+        </div>
+      </div>
+      <div id="smCanvas" class="sm-canvas" aria-label="Showmaster canvas">
+        <div class="sm-grid"></div>
+      </div>
+      <div class="sm-hint">
+        Tip: click a widget to edit • drag inside canvas • resize from corners • Del to remove
+      </div>
+    </div>
+
+    <div class="sm-props">
+      <div class="sm-propsHeader">
+        <div class="sm-propsTitle">Properties</div>
+        <button class="buttons btn-outline-light" id="smDelete" title="Delete selected">Delete</button>
+      </div>
+
+      <div id="smNoSelection" class="sm-empty">Select a widget on the canvas.</div>
+
+      <div id="smPropsForm" class="sm-propsForm" style="display:none;">
+        <div class="sm-field">
+          <label>Type</label>
+          <input id="smType" disabled />
+        </div>
+
+        <div class="sm-row2">
+          <div class="sm-field">
+            <label>X</label>
+            <input id="smX" type="number" min="0" max="319" />
+          </div>
+          <div class="sm-field">
+            <label>Y</label>
+            <input id="smY" type="number" min="0" max="239" />
+          </div>
+        </div>
+
+        <div class="sm-row2">
+          <div class="sm-field">
+            <label>W</label>
+            <input id="smW" type="number" min="10" max="320" />
+          </div>
+          <div class="sm-field">
+            <label>H</label>
+            <input id="smH" type="number" min="10" max="240" />
+          </div>
+        </div>
+
+        <div class="sm-divider"></div>
+
+        <div class="sm-row3">
+          <div class="sm-field">
+            <label>Bg</label>
+            <input id="smWidgetBg" type="color" value="#0ea5e9" />
+          </div>
+          <div class="sm-field">
+            <label>Text</label>
+            <input id="smWidgetText" type="color" value="#e5e7eb" />
+          </div>
+          <div class="sm-field">
+            <label>Border</label>
+            <input id="smWidgetBorder" type="color" value="#22d3ee" />
+          </div>
+        </div>
+
+
+        <div class="sm-colorRow">
+          <div class="sm-field">
+            <label>Bg</label>
+            <input id="smBg" type="color" />
+          </div>
+          <div class="sm-field">
+            <label>Text</label>
+            <input id="smFg" type="color" />
+          </div>
+        </div>
+        <div class="sm-field">
+          <label>Border</label>
+          <input id="smBorder" type="color" />
+        </div>
+
+<div id=\"smActionFields\">
+          <div class="sm-field">
+            <label>Label</label>
+            <input id="smLabel" maxlength="40" />
+          </div>
+          <div class="sm-field">
+            <label>Command</label>
+            <select id="smCommand"></select>
+          </div>
+
+          <div class="sm-field">
+            <label>Icon</label>
+            <div class="sm-iconRow">
+              <input id="smIconSearch" placeholder="Search icon (e.g. play, power-off)" maxlength="32" />
+              <select id="smIconPick"></select>
+            </div>
+            <div class="sm-iconHint">Uses Font Awesome names (like BigButtons). Stored as plain name (e.g. <code>play</code>).</div>
+          </div>
+        </div>
+
+        <div id="smStatusFields">
+          <div class="sm-field">
+            <label>Source</label>
+            <select id="smSource"></select>
+          </div>
+        </div>
+
+        <div class="sm-field">
+          <label>Widget ID</label>
+          <input id="smId" disabled />
+        </div>
+      </div>
+
+      <div class="sm-footerNote">
+        Config is saved to <code>/home/fpp/media/config/plugin.showmaster.json</code>
+      </div>
+    </div>
+  </div>
+
+  <div id="smToast" class="sm-toast" style="display:none;"></div>
+</div>
+
+<script src="plugin.php?plugin=showmaster&file=js/fa-icons.js&nopage=1"></script>
+<script src="plugin.php?plugin=showmaster&file=js/builder.js&nopage=1"></script>

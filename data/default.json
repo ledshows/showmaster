@@ -1,0 +1,49 @@
+{
+  "device": {
+    "w": 320,
+    "h": 240,
+    "bg": "#05070d"
+  },
+  "widgets": [
+    {
+      "id": "action_1",
+      "type": "action",
+      "x": 10,
+      "y": 10,
+      "w": 140,
+      "h": 46,
+      "label": "Start Show",
+      "command": "StartPlaylist",
+      "icon": "play",
+      "bg": "#0b1220",
+      "fg": "#e8f9ff",
+      "border": "#00e5ff"
+    },
+    {
+      "id": "action_2",
+      "type": "action",
+      "x": 170,
+      "y": 10,
+      "w": 140,
+      "h": 46,
+      "label": "Stop",
+      "command": "StopNow",
+      "icon": "stop",
+      "bg": "#0b1220",
+      "fg": "#e8f9ff",
+      "border": "#00e5ff"
+    },
+    {
+      "id": "status_1",
+      "type": "status",
+      "x": 10,
+      "y": 70,
+      "w": 300,
+      "h": 26,
+      "source": "player.statusText",
+      "bg": "#111827",
+      "fg": "#e8f9ff",
+      "border": "#00bcd4"
+    }
+  ]
+}
