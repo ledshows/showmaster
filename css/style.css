@@ -35,7 +35,7 @@
 
 .sm-brand{display:flex; align-items:center; gap:10px;}
 .sm-logo{
-  width:110px;height:34px;border-radius:10px; padding:0 10px;
+  width:160px;height:80px;border-radius:14px; padding:0 12px;
   display:flex;align-items:center;justify-content:center;
   background:linear-gradient(135deg, rgba(0,229,255,0.22), rgba(168,85,247,0.18));
   border:1px solid var(--sm-border2);
@@ -44,8 +44,8 @@
 }
 .sm-logo img{
   display:block;
-  width:100px;
-  height:28px;
+  width:150px;
+  height:70px;
   object-fit:contain;
   filter: drop-shadow(0 0 6px rgba(0,229,255,0.25));
 }
@@ -54,6 +54,9 @@
 
 .sm-actions{display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;}
 .sm-upload{display:flex; align-items:center; gap:8px;}
+
+.sm-pageHeightTop{display:flex; align-items:center; gap:8px;}
+.sm-pageHeightTop .sm-pageHeight{width:90px; min-width:90px;}
 
 /* FPP uses bootstrap-ish classes, but make the builder buttons consistent on dark backgrounds */
 .sm-wrap .buttons{
@@ -84,7 +87,7 @@
   font-weight:700;
 }
 .sm-ip{
-  width:220px; max-width:40vw;
+  width:260px; max-width:50vw;
   padding:7px 10px;
   border-radius:10px;
   border:1px solid var(--sm-border);
@@ -408,8 +411,11 @@
 /* Pages / tabs */
 .sm-pagesBar{display:flex;align-items:center;gap:10px;margin:10px 0;}
 .sm-pageTabs{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
-.sm-pageTab{border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:rgba(255,255,255,.9);border-radius:10px;padding:6px 10px;font-size:12px;cursor:pointer;user-select:none;}
+.sm-pageTab{border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:rgba(255,255,255,.9);border-radius:10px;padding:6px 10px;font-size:12px;cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px;}
 .sm-pageTab.active{border-color:rgba(0,229,255,.55);box-shadow:0 0 0 2px rgba(0,229,255,.15) inset;}
+.sm-pageTab .sm-pageName{white-space:nowrap;}
+.sm-pageTab .sm-delPage{border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.25);color:rgba(255,255,255,.85);border-radius:8px;padding:0 6px;line-height:18px;height:18px;font-size:14px;cursor:pointer;}
+.sm-pageTab .sm-delPage:hover{border-color:rgba(255,77,109,.55);color:#fff;}
 .sm-addPage{width:34px;height:34px;padding:0;border-radius:10px;line-height:1;font-weight:700;}
 .sm-pageSettings{display:flex;align-items:center;gap:8px;margin-left:auto;}
 .sm-pageLabel{font-size:12px;opacity:.75;margin:0;}

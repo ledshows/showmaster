@@ -178,6 +178,7 @@ function widgetById(id) {
 
   function renderCanvas() {
     ensureCanvasSizing();
+    try { $("#smZoomLabel").text(getZoomPercent() + "%"); } catch(ez) {}
     var $c = $("#smCanvas");
     document.getElementById('smCanvas').style.setProperty('--smCanvasBg', state.device.bg || '#070a12');
     // Keep the grid overlay element; only remove widgets.
@@ -209,21 +210,56 @@ function widgetById(id) {
     if (!$t.length) return;
     $t.empty();
     for (var i=0;i<state.pages.length;i++) {
-      (function(pg){
+      (function(pg, idx){
         var $b = $("<div class='sm-pageTab'></div>");
-        $b.text(pg.name || ("Page " + (i+1)));
+        var name = pg.name || ("Page " + (idx+1));
+        $b.append("<span class='sm-pageName'>" + esc(name) + "</span>");
+        if (state.pages.length > 1) {
+          var $x = $("<button class='sm-delPage' type='button' title='Delete page'>&times;</button>");
+          $x.on("click", function(e){ e.stopPropagation(); deletePage(pg.id); });
+          $b.append($x);
+        }
         if (pg.id === state.activePageId) $b.addClass("active");
         $b.on("click", function(){ setActivePage(pg.id); });
         $t.append($b);
-      })(state.pages[i]);
+      })(state.pages[i], i);
     }
     try { $("#smPageHeight").val(currentPage().h || DEVICE_H); } catch(e) {}
+  }
+
+  function deletePage(pageId) {
+    ensurePages();
+    if (state.pages.length <= 1) return;
+    var idx = -1;
+    for (var i=0;i<state.pages.length;i++) if (state.pages[i].id === pageId) { idx = i; break; }
+    if (idx < 0) return;
+    // remove
+    state.pages.splice(idx, 1);
+    // repair any tab widgets pointing to this page
+    var fallback = (state.pages[0] ? state.pages[0].id : null);
+    for (var p=0;p<state.pages.length;p++) {
+      var ws = state.pages[p].widgets || [];
+      for (var w=0;w<ws.length;w++) {
+        if (ws[w].type === 'tab' && ws[w].targetPageId === pageId) ws[w].targetPageId = fallback;
+      }
+    }
+    // pick a new active page if needed
+    if (state.activePageId === pageId) {
+      var newIdx = Math.max(0, idx-1);
+      state.activePageId = state.pages[newIdx] ? state.pages[newIdx].id : fallback;
+    }
+    state.selectedId = null;
+    highlightSelection(null);
+    renderPageTabs();
+    try { $('#smPageHeight').val(currentPage().h || DEVICE_H); } catch(e) {}
+    renderCanvas();
+    renderProps();
   }
 
   function addPage() {
     ensurePages();
     var pid = "p" + (new Date().getTime());
-    state.pages.push({ id: pid, name: "Page " + state.pages.length, h: DEVICE_H, widgets: [] });
+    state.pages.push({ id: pid, name: "Page " + (state.pages.length + 1), h: DEVICE_H, widgets: [] });
     setActivePage(pid);
   }
 
@@ -334,7 +370,7 @@ function makeInteractive($el, w) {
     $("#smRadius").val(w.radius);
     $("#smFontSize").val(w.textSize);
 
-    $("#smActionFields").toggle(w.type === "action");
+    $("#smActionFields").toggle(w.type === "action" || w.type === "tab");
     $("#smStatusFields").toggle(w.type === "status");
 
     var $cmdField = $("#smPickCommand").closest(".sm-field");
@@ -812,6 +848,27 @@ $("#smCanvasBg").val(state.device.bg);
     });
 
     $("#smUpload").off("click").on("click", function(e){ e.preventDefault(); pushToShowmaster(); });
+
+    $("#smDownload").off("click").on("click", function(e){
+      e.preventDefault();
+      try {
+        var cfg = exportConfig();
+        var txt = JSON.stringify(cfg, null, 2);
+        var blob = new Blob([txt], {type: 'application/json'});
+        var url = (window.URL || window.webkitURL).createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'plugin.showmaster.json';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function(){
+          document.body.removeChild(a);
+          try { (window.URL || window.webkitURL).revokeObjectURL(url); } catch(ex) {}
+        }, 0);
+      } catch(ex2) {
+        toast('Download failed.', true);
+      }
+    });
 
     $("#smCanvasBg").off("input change").on("input change", function(){
       state.device.bg = $(this).val();

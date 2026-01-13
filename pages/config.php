@@ -19,8 +19,13 @@
       <button class="buttons btn-outline-light" id="smAddTab">+ Tab</button>
       <button class="buttons btn-success" id="smSave">Save</button>
       <button class="buttons btn-outline-light" id="smLoad">Load</button>
+      <div class="sm-pageHeightTop">
+        <label class="sm-toolLabel">Page height</label>
+        <input id="smPageHeight" type="number" class="form-control form-control-sm sm-pageHeight" min="240" step="10" value="240" />
+      </div>
       <div class="sm-upload">
         <input class="sm-ip" id="smDeviceIp" placeholder="Showmaster IP (e.g. 192.168.1.50)" />
+        <button class="buttons btn-outline-light" id="smDownload" type="button">Download JSON</button>
         <button class="buttons btn-primary" id="smUpload">Push to Showmaster</button>
       </div>
     </div>
@@ -43,10 +48,6 @@
       <div class="sm-pagesBar">
         <div id="smPageTabs" class="sm-pageTabs"></div>
         <button id="smAddPage" class="btn btn-outline-light btn-sm sm-addPage" type="button" title="Add page">+</button>
-        <div class="sm-pageSettings">
-          <label class="sm-pageLabel">Page height</label>
-          <input id="smPageHeight" type="number" class="form-control form-control-sm sm-pageHeight" min="240" step="10" value="240" />
-        </div>
       </div>
       <div id="smCanvasViewport" class="sm-canvasViewport">
 <div id="smCanvas" class="sm-canvas" aria-label="Showmaster canvas">
