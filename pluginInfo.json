@@ -2,7 +2,7 @@
   "repoName": "showmaster",
   "name": "Showmaster Builder",
   "author": "Ledshows",
-  "description": "Drag & drop UI builder (320x240) for ESP32 touchscreen remotes. Build action/status widgets and push config to device.",
+  "description": "Drag & drop UI builder for ledshows showmaster. Build action/status widgets and push config to device.",
   "homeURL": "https://github.com/ledshows/showmaster",
   "srcURL": "https://github.com/ledshows/showmaster.git",
   "bugURL": "https://github.com/ledshows/showmaster/issues",
