@@ -607,3 +607,42 @@
 .sm-commandStack{display:flex;flex-direction:column;gap:8px;}
 #smCommandDisplay{width:100%;}
 #smPickCommand{width:100%;}
+
+
+/* --- Layout fix: Action/Status/Tab + Ops buttons --- */
+.sm-propsHeader .sm-propsRowAdd{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:6px;
+  padding:2px;
+  width:100%;
+}
+
+.sm-propsHeader .sm-propsRowAdd .sm-addBtn{
+  width:100%;
+  padding:0;
+  aspect-ratio:1 / 1;   /* square */
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+}
+
+.sm-propsHeader .sm-propsRowOps{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:6px;
+  padding:2px;
+  width:100%;
+}
+
+.sm-propsHeader .sm-propsRowOps .buttons{
+  width:100%;
+  height:44px;          /* shorter, wide buttons */
+  padding:0 10px;
+}
+
+/* Make the + icon big and centered */
+.smPlus{font-size:34px; line-height:1; margin:0 0 4px 0;}
+.smBtnText{font-size:14px; line-height:1;}
+
