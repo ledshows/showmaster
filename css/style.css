@@ -470,3 +470,35 @@
   border:1px solid #D2D2D2 !important;
   background:rgba(255,255,255,0.92) !important;
 }
+
+
+/* ---- v2.5.3 Icon picker: hide labels + fix close button size ---- */
+#smIconModal .smIconTile{
+  font-size:0 !important;
+  line-height:0 !important;
+  padding:0 !important;
+}
+#smIconModal .smIconTile::before,
+#smIconModal .smIconTile::after{
+  content:none !important;
+  display:none !important;
+}
+#smIconModal .smIconTile i{
+  font-size:44px !important;
+  line-height:1 !important;
+}
+#smIconModal .modal-header .close,
+#smIconModal .modal-header .btn-close{
+  width:34px !important;
+  height:34px !important;
+  padding:0 !important;
+  margin:0 !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+}
+#smIconModal .modal-header .close span{
+  font-size:22px !important;
+  line-height:1 !important;
+}
+
