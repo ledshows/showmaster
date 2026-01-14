@@ -7,10 +7,7 @@
   <div class="sm-topbar">
     <div class="sm-brand">
       <div class="sm-logo"><img src="plugin.php?plugin=showmaster&file=images/showmaster.png&nopage=1" alt="Showmaster" /></div>
-      <div>
-        <div class="sm-title">Showmaster Builder</div>
-        <div class="sm-subtitle"></div>
-      </div>
+      <div class="sm-subtitle"></div>
     </div>
 
     <div class="sm-actions">
@@ -19,15 +16,14 @@
       <button class="buttons btn-outline-light" id="smAddTab">+ Tab</button>
       <button class="buttons btn-success" id="smSave">Save</button>
       <button class="buttons btn-outline-light" id="smLoad">Load</button>
-      <div class="sm-pageHeightTop">
-        <label class="sm-toolLabel">Page height</label>
-        <input id="smPageHeight" type="number" class="form-control form-control-sm sm-pageHeight" min="240" step="10" value="240" />
-      </div>
       <div class="sm-upload">
         <input class="sm-ip" id="smDeviceIp" placeholder="Showmaster IP (e.g. 192.168.1.50)" />
         <button class="buttons btn-primary" id="smUpload" type="button">Push to Showmaster</button>
         <button class="buttons btn-outline-light" id="smDownload" type="button">Download JSON</button>
       </div>
+
+      <!-- hidden file input used by the Load button -->
+      <input id="smLoadFile" type="file" accept="application/json,.json" style="display:none;" />
     </div>
   </div>
 
@@ -47,6 +43,7 @@
       <div class="sm-pagesBar">
         <div id="smPageTabs" class="sm-pageTabs"></div>
         <button id="smAddPage" class="btn btn-outline-light btn-sm sm-addPage" type="button" title="Add page">+</button>
+        <input id="smPageHeight" type="number" class="sm-pageHeightInline" min="240" step="10" value="240" title="Page height" />
       </div>
       <div id="smCanvasViewport" class="sm-canvasViewport">
 <div id="smCanvas" class="sm-canvas" aria-label="Showmaster canvas">
@@ -60,7 +57,7 @@
 
     <div class="sm-props">
       <div class="sm-propsHeader">
-        <div class="sm-propsTitle">Properties</div>
+        <div class="sm-propsTitle"></div>
         <button class="buttons btn-outline-light" id="smCopy" title="Duplicate selected">Copy</button>
         <button class="buttons btn-outline-light" id="smCopyToPage" title="Copy selected to another page">Copy to page</button>
         <button class="buttons btn-outline-light" id="smDelete" title="Delete selected">Delete</button>

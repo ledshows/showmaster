@@ -35,7 +35,7 @@
 
 .sm-brand{display:flex; align-items:center; gap:10px;}
 .sm-logo{
-  width:200px;height:80px;border-radius:0; padding:0;
+  width:400px;height:80px;border-radius:0; padding:0;
   display:flex;align-items:center;justify-content:flex-start;
   background:transparent;
   border:none;
@@ -44,14 +44,14 @@
 }
 .sm-logo img{
   display:block;
-  width:200px;
+  width:400px;
   height:80px;
   object-fit:contain;
   filter:none;
 }
 
-/* More space between icon and text on widgets */
-.sm-widget .sm-inner i{display:inline-block; margin-right:12px;}
+/* Center content + add spacing only when there is both icon and text */
+.sm-widget .sm-inner{display:flex; align-items:center; justify-content:center; gap:12px;}
 
 /* If any info-icon is used in forms */
 .fa-info{margin-right:12px;}
@@ -60,14 +60,24 @@
 .modal .modal-header .close,
 .modal .modal-header .btn-close{font-size:20px; width:32px; height:32px; line-height:32px; padding:0;}
 .modal .modal-header .close span{font-size:20px; line-height:32px;}
-.sm-title{font-size:14px; font-weight:700; line-height:1.1;}
 .sm-subtitle{font-size:12px; color:var(--sm-muted);}
 
 .sm-actions{display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;}
 .sm-upload{display:flex; align-items:center; gap:8px;}
 
-.sm-pageHeightTop{display:flex; align-items:center; gap:8px;}
-.sm-pageHeightTop .sm-pageHeight{width:90px; min-width:90px;}
+.sm-pageHeightInline{
+  width:90px;
+  min-width:90px;
+  height:30px;
+  border-radius:10px;
+  padding:4px 10px;
+  background:rgba(255,255,255,0.04);
+  border:1px solid var(--sm-border);
+  color:var(--sm-text);
+}
+
+/* Grey out disabled buttons in header */
+.sm-propsHeader .buttons:disabled{opacity:0.4; cursor:not-allowed;}
 
 /* FPP uses bootstrap-ish classes, but make the builder buttons consistent on dark backgrounds */
 .sm-wrap .buttons{
@@ -428,6 +438,16 @@
 .sm-pageTab .sm-delPage{border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.25);color:rgba(255,255,255,.85);border-radius:8px;padding:0 6px;line-height:18px;height:18px;font-size:14px;cursor:pointer;}
 .sm-pageTab .sm-delPage:hover{border-color:rgba(255,77,109,.55);color:#fff;}
 .sm-addPage{width:34px;height:34px;padding:0;border-radius:10px;line-height:1;font-weight:700;}
+.sm-pageHeightInline{
+  width:90px;min-width:90px;height:34px;
+  border-radius:10px;
+  border:1px solid var(--sm-border);
+  background:rgba(255,255,255,0.06);
+  color:var(--sm-text);
+  padding:0 10px;
+  margin-left:8px;
+}
+.sm-pageHeightInline:focus{outline:none; box-shadow:0 0 0 2px rgba(122,170,255,0.25);}
 .sm-pageSettings{display:flex;align-items:center;gap:8px;margin-left:auto;}
 .sm-pageLabel{font-size:12px;opacity:.75;margin:0;}
 .sm-pageHeight{width:84px;}

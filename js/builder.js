@@ -197,12 +197,16 @@ function widgetById(id) {
   function widgetText(w) {
     if (w.type === "status") return prettySource(w.source);
     if (w.type === "tab") {
+      var label = (w.label == null) ? "" : String(w.label);
       var iconT = w.icon ? ("<i class=\'fa fa-" + esc(w.icon) + "\' style=\'font-size:" + (w.iconSize||14) + "px\'></i>") : "";
-      return iconT + "<span>" + esc(w.label || "Tab") + "</span>";
+      if (!label.trim()) return iconT;
+      return iconT + "<span>" + esc(label) + "</span>";
     }
     // action: icon + label (spacing handled by CSS, not by trailing spaces)
+    var label2 = (w.label == null) ? "" : String(w.label);
     var icon = w.icon ? ("<i class='fa fa-" + esc(w.icon) + "' style='font-size:" + (w.iconSize||14) + "px'></i>") : "";
-    return icon + "<span>" + esc(w.label || "") + "</span>";
+    if (!label2.trim()) return icon;
+    return icon + "<span>" + esc(label2) + "</span>";
   }
 
   function esc(s) {
@@ -390,6 +394,8 @@ function makeInteractive($el, w) {
       $('#smPropsForm').hide();
       $('#smNoSelection').show();
       $('#smDelete').prop('disabled', true);
+      $('#smCopy').prop('disabled', true);
+      $('#smCopyToPage').prop('disabled', true);
       return;
     }
     w = normalizeWidget(w);
@@ -397,6 +403,8 @@ function makeInteractive($el, w) {
     $('#smNoSelection').hide();
     $('#smPropsForm').show();
     $('#smDelete').prop('disabled', false);
+    $('#smCopy').prop('disabled', false);
+    $('#smCopyToPage').prop('disabled', false);
 
     $("#smType").val(w.type);
     $("#smId").val(w.id);
@@ -417,7 +425,7 @@ function makeInteractive($el, w) {
       if ($cmdField.length) $cmdField.show();
       if ($tabField.length) $tabField.hide();
       $("#smLabel").val(w.label || "");
-      $("#smIconValue").val(w.icon || "");
+      $("#smIconValue").val(w.icon || "columns");
       $("#smIconSize").val(w.iconSize || 14);
       $("#smCommandDisplay").val(w.command ? w.command : "");
       $("#smCommand").val(w.command || "");
@@ -425,8 +433,8 @@ function makeInteractive($el, w) {
     } else if (w.type === "tab") {
       if ($cmdField.length) $cmdField.hide();
       if ($tabField.length) $tabField.show();
-      $("#smLabel").val(w.label || "Tab");
-      $("#smIconValue").val(w.icon || "columns");
+      $("#smLabel").val(w.label || "");
+      $("#smIconValue").val(w.icon || "");
       $("#smIconSize").val(w.iconSize || 14);
       // fill target pages
       var $tp = $("#smTargetPage"); $tp.empty();
@@ -653,6 +661,77 @@ function makeInteractive($el, w) {
     var w = widgetById(state.selectedId);
     if (!w || (w.type!=="action" && w.type!=="tab")) return;
 
+    // Helper: capture values from the visible FPP Command Editor modal
+    function captureFromFppModal() {
+      try {
+        var $m = $(".modal:visible");
+        if (!$m.length) return null;
+        // pick the one that looks like the command editor (has 'Accept Changes')
+        var $cm = null;
+        $m.each(function(){
+          var t = ($(this).find('.modal-title').first().text() || '').trim();
+          var hasAccept = $(this).find('button, a').filter(function(){
+            return (($(this).text()||'').trim().toLowerCase() === 'accept changes');
+          }).length > 0;
+          if (hasAccept && (t.toLowerCase().indexOf('command') >= 0 || t.toLowerCase().indexOf('fpp') >= 0)) { $cm = $(this); return false; }
+        });
+        if (!$cm) $cm = $m.first();
+        // command name
+        var cmdName = "";
+        var $cmdSel = null;
+        $cm.find('label').each(function(){
+          var txt = (($(this).text()||'').trim().toLowerCase());
+          if (txt === 'command:' || txt === 'command') {
+            var $next = $(this).closest('div').find('select').first();
+            if ($next.length) { $cmdSel = $next; return false; }
+          }
+        });
+        if (!$cmdSel || !$cmdSel.length) $cmdSel = $cm.find('select').first();
+        if ($cmdSel && $cmdSel.length) cmdName = $cmdSel.find('option:selected').first().text() || $cmdSel.val() || "";
+
+        var args = {};
+        $cm.find('.modal-body').find('input, select, textarea').each(function(){
+          var el = this;
+          var key = el.id || el.name;
+          if (!key) return;
+          var type = (el.type || '').toLowerCase();
+          if (type === 'button' || type === 'submit') return;
+          if (type === 'checkbox') args[key] = !!el.checked;
+          else args[key] = $(el).val();
+        });
+        return { command: cmdName, args: args };
+      } catch(ex) {
+        return null;
+      }
+    }
+
+    function bindFppAcceptOnce() {
+      try {
+        setTimeout(function(){
+          var $m = $(".modal:visible");
+          if (!$m.length) return;
+          var $accept = $m.find('button, a').filter(function(){
+            return (($(this).text()||'').trim().toLowerCase() === 'accept changes');
+          }).first();
+          if (!$accept.length) return;
+          if ($accept.data('smBound')) return;
+          $accept.data('smBound', true);
+          $accept.on('click.smCapture', function(){
+            var captured = captureFromFppModal();
+            if (captured) {
+              w.command = captured.command || w.command || "";
+              w.args = captured.args || {};
+              // keep the hidden fields in sync
+              $("#smCommandDisplay").val(w.command || "");
+              $("#smCommand").val(w.command || "");
+              $("#smCommandArgsJson").val(w.args ? JSON.stringify(w.args) : "{}");
+              setTimeout(function(){ renderCanvas(); renderProps(); }, 0);
+            }
+          });
+        }, 150);
+      } catch(ex) {}
+    }
+
     // If the FPP core Command Editor exists (newer FPP UI), use it.
     // This keeps behavior consistent with the built-in "FPP Command Editor".
     try {
@@ -664,14 +743,17 @@ function makeInteractive($el, w) {
       };
       if (window.FPPCommandEditor && typeof window.FPPCommandEditor.open === "function") {
         window.FPPCommandEditor.open(w.command || "", w.args || {}, doneCb);
+        bindFppAcceptOnce();
         return;
       }
       if (window.CommandEditor && typeof window.CommandEditor.open === "function") {
         window.CommandEditor.open(w.command || "", w.args || {}, doneCb);
+        bindFppAcceptOnce();
         return;
       }
       if (typeof window.ShowCommandEditor === "function") {
         window.ShowCommandEditor(w.command || "", w.args || {}, doneCb);
+        bindFppAcceptOnce();
         return;
       }
     } catch(ex) {}
@@ -799,7 +881,7 @@ function makeInteractive($el, w) {
       type: "tab",
       x: Math.round((DEVICE_W - 120) / 2), y: Math.round((DEVICE_H - 44) / 2),
       w: 120, h: 44,
-      label: "Tab",
+      label: "",
       icon: "columns",
       iconSize: 22,
       textSize: 14,
@@ -953,8 +1035,30 @@ $("#smCanvasBg").val(state.device.bg);
       apiSaveConfig(cfg).done(function(){ toast("Saved.", false); }).fail(function(){ toast("Save failed.", true); });
     });
 
+    // Load: upload a JSON file and replace the current config
     $("#smLoad").off("click").on("click", function(){
-      apiGetConfig().done(function(cfg){ loadConfig(cfg); toast("Loaded.", false); }).fail(function(){ toast("Load failed.", true); });
+      try { document.getElementById('smLoadFile').value = ''; } catch(e) {}
+      $("#smLoadFile").trigger('click');
+    });
+
+    $("#smLoadFile").off('change').on('change', function(){
+      var f = (this.files && this.files[0]) ? this.files[0] : null;
+      if (!f) return;
+      var reader = new FileReader();
+      reader.onload = function(){
+        try {
+          var obj = JSON.parse(String(reader.result || '{}'));
+          loadConfig(obj);
+          renderPageTabs();
+          renderCanvas();
+          renderProps();
+          // persist to FPP
+          apiSaveConfig(exportConfig()).done(function(){ toast('Loaded.', false); }).fail(function(){ toast('Loaded, but save failed.', true); });
+        } catch(ex) {
+          toast('Invalid JSON.', true);
+        }
+      };
+      reader.readAsText(f);
     });
 
     $("#smUpload").off("click").on("click", function(e){ e.preventDefault(); pushToShowmaster(); });
