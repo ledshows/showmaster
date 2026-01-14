@@ -132,7 +132,7 @@
   padding:12px;
   min-width: 360px;
 }
-.sm-canvasTitle{font-size:12px; color:var(--sm-muted); margin-bottom:10px;}
+.sm-canvasTitle{font-size:12px; color:var(--sm-muted); margin-bottom:20px; margin-top:20px;}
 
 .sm-canvas{
   position:relative;
@@ -380,7 +380,31 @@
 
 
 /* Zoom slider */
-.sm-zoomSlider{width:260px;max-width:320px;}
+.sm-zoomSlider{max-width:300px; width:300px;}
+
+/* Smaller, consistent modals */
+#smIconModal .modal-dialog{max-width:720px;}
+#smCmdModal .modal-dialog{max-width:720px;}
+#smCopyPageModal .modal-dialog{max-width:520px;}
+
+/* Single close button (no FA overlay, always top-right) */
+.modal .modal-header{position:relative;}
+.smModalClose{
+  position:absolute;
+  right:12px;
+  top:10px;
+  width:28px;
+  height:28px;
+  line-height:26px;
+  padding:0;
+  border:1px solid rgba(0,0,0,0.15);
+  background:rgba(255,255,255,0.9);
+  color:#111;
+  border-radius:8px;
+  font-size:18px;
+  cursor:pointer;
+}
+.smModalClose:focus{outline:none; box-shadow:0 0 0 2px rgba(0,229,255,0.18);}
 .sm-zoomLabel{ min-width:70px; display:inline-block; color:#cfefff; font-size:12px; }
 
 /* Make color inputs + checkbox consistent in toolbar */

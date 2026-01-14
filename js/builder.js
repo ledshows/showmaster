@@ -57,6 +57,13 @@
     ensurePages();
     renderPageTabs();
     try { $('#smPageHeight').val(currentPage().h || DEVICE_H); } catch(e) {}
+    // Per-page background
+    try {
+      var pg = currentPage();
+      var bg = (pg && pg.bg) ? pg.bg : (state.device.bg || '#070a12');
+      $('#smCanvasBg').val(bg);
+      document.getElementById('smCanvas').style.setProperty('--smCanvasBg', bg);
+    } catch(e) {}
     renderCanvas();
     renderProps();
   }
@@ -64,7 +71,7 @@
     if (!state.pages) state.pages = [];
     if (!state.pages.length) {
       var pid = "p1";
-      state.pages.push({ id: pid, name: "Page 1", h: DEVICE_H, widgets: [] });
+      state.pages.push({ id: pid, name: "Page 1", h: DEVICE_H, bg: (state.device.bg || '#070a12'), widgets: [] });
       state.activePageId = pid;
     }
     if (!state.activePageId) state.activePageId = state.pages[0].id;
@@ -302,7 +309,7 @@ function widgetById(id) {
   function addPage() {
     ensurePages();
     var pid = "p" + (new Date().getTime());
-    state.pages.push({ id: pid, name: "Page " + (state.pages.length + 1), h: DEVICE_H, widgets: [] });
+    state.pages.push({ id: pid, name: "Page " + (state.pages.length + 1), h: DEVICE_H, bg: (state.device.bg || '#070a12'), widgets: [] });
     setActivePage(pid);
   }
 
@@ -487,21 +494,32 @@ function makeInteractive($el, w) {
       w.bg = $("#smBg").val(); w.text = $("#smFg").val(); w.border = $("#smBorder").val();
       renderCanvas(); renderProps();
     });
-    $("#smBorderSize").off("input change").on("input change", function(){
-      var w = widgetById(state.selectedId); if (!w) return;
-      w.borderSize = toInt($(this).val(), 2);
-      renderCanvas(); renderProps();
-    });
-    $("#smRadius").off("input change").on("input change", function(){
-      var w = widgetById(state.selectedId); if (!w) return;
-      w.radius = toInt($(this).val(), 10);
-      renderCanvas(); renderProps();
-    });
-    $("#smFontSize").off("input change").on("input change", function(){
-      var w = widgetById(state.selectedId); if (!w) return;
-      w.textSize = toInt($(this).val(), 12);
-      renderCanvas(); renderProps();
-    });
+    // Numeric fields: allow typing (do not re-render props while typing)
+    function bindNumeric(id, getter, setter, min, max, fallback) {
+      $(id).off('input').on('input', function(){
+        var w = widgetById(state.selectedId); if (!w) return;
+        var raw = String($(this).val() || '');
+        if (raw === '' || raw === '-' || raw === '+') return;
+        var v = parseInt(raw, 10);
+        if (isNaN(v)) return;
+        setter(w, v);
+        normalizeWidget(w);
+        renderCanvas(); highlightSelection(w.id);
+      });
+      $(id).off('change blur').on('change blur', function(){
+        var w = widgetById(state.selectedId); if (!w) return;
+        var v = toInt($(this).val(), fallback);
+        if (min !== null && v < min) v = min;
+        if (max !== null && v > max) v = max;
+        setter(w, v);
+        normalizeWidget(w);
+        renderCanvas(); renderProps();
+      });
+    }
+
+    bindNumeric('#smBorderSize', function(w){return w.borderSize;}, function(w,v){w.borderSize=v;}, 0, 10, 2);
+    bindNumeric('#smRadius', function(w){return w.radius;}, function(w,v){w.radius=v;}, 0, 30, 10);
+    bindNumeric('#smFontSize', function(w){return w.textSize;}, function(w,v){w.textSize=v;}, 8, 32, 12);
 
     $("#smLabel").off("input change").on("input change", function(){
       var w = widgetById(state.selectedId); if (!w || (w.type!=="action" && w.type!=="tab")) return;
@@ -515,18 +533,7 @@ function makeInteractive($el, w) {
       renderCanvas(); renderProps();
     });
 
-    $("#smIconSize").off("input").on("input", function(){
-      var w = widgetById(state.selectedId); if (!w || (w.type!=="action" && w.type!=="tab")) return;
-      w.iconSize = clamp(toInt($(this).val(), 14), 8, 64);
-      renderCanvas();
-      highlightSelection(w.id);
-    });
-    $("#smIconSize").off("change blur").on("change blur", function(){
-      var w = widgetById(state.selectedId); if (!w || (w.type!=="action" && w.type!=="tab")) return;
-      w.iconSize = clamp(toInt($(this).val(), 14), 8, 64);
-      renderCanvas();
-      renderProps();
-    });
+    bindNumeric('#smIconSize', function(w){return w.iconSize;}, function(w,v){w.iconSize=clamp(v,8,64);}, 8, 64, 14);
     $("#smTargetPage").off("change").on("change", function(){
       var w = widgetById(state.selectedId); if (!w || w.type!=="tab") return;
       w.targetPageId = $(this).val();
@@ -673,16 +680,30 @@ function makeInteractive($el, w) {
       // Populate list (FPP caches internally)
       try { window.LoadCommandList('smFppCmdSelect'); } catch(e2) {}
 
-      // Restore existing selection
+      // Restore existing command + args (BigButtons style)
       if (w.command) {
-        $('#smFppCmdSelect').val(w.command);
-        try { window.CommandSelectChanged('smFppCmdSelect', 'tableSmCmd', true); } catch(e3) {}
+        if (typeof window.PopulateExistingCommand === 'function') {
+          try {
+            window.PopulateExistingCommand({
+              command: w.command,
+              args: w.args || {},
+              multisyncCommand: w.multisyncCommand,
+              multisyncHosts: w.multisyncHosts
+            }, 'smFppCmdSelect', 'tableSmCmd', true);
+          } catch(e3) {
+            $('#smFppCmdSelect').val(w.command);
+            try { window.CommandSelectChanged('smFppCmdSelect', 'tableSmCmd', true); } catch(e4) {}
+          }
+        } else {
+          $('#smFppCmdSelect').val(w.command);
+          try { window.CommandSelectChanged('smFppCmdSelect', 'tableSmCmd', true); } catch(e4) {}
+        }
       }
 
       // Open dialog
       $('#smFppCmdWrap').fppDialog({
         title: 'FPP Command Editor',
-        width: 820,
+        width: 640,
         buttons: {
           'Done': {
             click: function(){
@@ -846,10 +867,11 @@ function makeInteractive($el, w) {
   // -------- save/load/push --------
   function exportConfig() {
     ensurePages();
+    // Keep device.bg as a default/fallback, but backgrounds are per-page.
     var out = { device: { w: DEVICE_W, h: DEVICE_H, bg: state.device.bg }, pages: [], activePageId: state.activePageId };
     for (var p=0;p<state.pages.length;p++) {
       var pg = state.pages[p];
-      var pgOut = { id: pg.id, name: pg.name, h: pg.h || DEVICE_H, widgets: [] };
+      var pgOut = { id: pg.id, name: pg.name, h: pg.h || DEVICE_H, bg: pg.bg || state.device.bg || '#070a12', widgets: [] };
       var ws = pg.widgets || [];
       for (var i=0;i<ws.length;i++) {
         var w = normalizeWidget($.extend({}, ws[i]));
@@ -875,8 +897,17 @@ function makeInteractive($el, w) {
     }
 
     ensurePages();
+    // Ensure each page has its own background
+    for (var i=0;i<(state.pages||[]).length;i++) {
+      if (!state.pages[i].bg) state.pages[i].bg = (state.device.bg || '#070a12');
+    }
     state.selectedId = null;
-$("#smCanvasBg").val(state.device.bg);
+    // Set page background
+    try {
+      var bg = (currentPage() && currentPage().bg) ? currentPage().bg : (state.device.bg || '#070a12');
+      $("#smCanvasBg").val(bg);
+      document.getElementById('smCanvas').style.setProperty('--smCanvasBg', bg);
+    } catch(e) {}
     $("#smPageHeight").val(currentPage().h || DEVICE_H);
     renderPageTabs();
     renderCanvas(); renderProps();
@@ -1035,9 +1066,12 @@ $("#smCanvasBg").val(state.device.bg);
       }
     });
 
+    // Background is per-page
     $("#smCanvasBg").off("input change").on("input change", function(){
-      state.device.bg = $(this).val();
-      document.getElementById("smCanvas").style.setProperty("--smCanvasBg", state.device.bg);
+      var pg = currentPage();
+      if (!pg) return;
+      pg.bg = $(this).val();
+      document.getElementById("smCanvas").style.setProperty("--smCanvasBg", pg.bg);
     });
 
     $("#smGridToggle").off("change").on("change", function(){
@@ -1065,7 +1099,7 @@ $("#smCanvasBg").val(state.device.bg);
 
   function boot() {
     wireUi();
-    $("#smCanvasBg").val(state.device.bg);
+    try { $("#smCanvasBg").val((currentPage() && currentPage().bg) ? currentPage().bg : state.device.bg); } catch(e) {}
     $("#smGridToggle").prop("checked", state.snap);
     $("#smZoom").val(state.zoom);
     ensurePages();
