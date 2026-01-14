@@ -6,10 +6,10 @@
 <div class="sm-wrap">
   <div class="sm-topbar">
     <div class="sm-brand">
-      <div class="sm-logo"><img src="plugin.php?plugin=showmaster&file=images/ledshows.png&nopage=1" alt="LED-SHOWS" /></div>
+      <div class="sm-logo"><img src="plugin.php?plugin=showmaster&file=images/showmaster.png&nopage=1" alt="Showmaster" /></div>
       <div>
         <div class="sm-title">Showmaster Builder</div>
-        <div class="sm-subtitle">Canvas 320×240 • Drag • Resize • Push to Showmaster</div>
+        <div class="sm-subtitle"></div>
       </div>
     </div>
 
@@ -25,8 +25,8 @@
       </div>
       <div class="sm-upload">
         <input class="sm-ip" id="smDeviceIp" placeholder="Showmaster IP (e.g. 192.168.1.50)" />
+        <button class="buttons btn-primary" id="smUpload" type="button">Push to Showmaster</button>
         <button class="buttons btn-outline-light" id="smDownload" type="button">Download JSON</button>
-        <button class="buttons btn-primary" id="smUpload">Push to Showmaster</button>
       </div>
     </div>
   </div>
@@ -34,7 +34,6 @@
   <div class="sm-body">
     <div class="sm-canvasShell">
       <div class="sm-canvasTitle">
-        Device Preview (exact size)
         <div class="sm-canvasTools">
           <span class="sm-toolLabel">Background</span>
           <input id="smCanvasBg" type="color" value="#0b1020" title="Canvas background" />
@@ -63,6 +62,7 @@
       <div class="sm-propsHeader">
         <div class="sm-propsTitle">Properties</div>
         <button class="buttons btn-outline-light" id="smCopy" title="Duplicate selected">Copy</button>
+        <button class="buttons btn-outline-light" id="smCopyToPage" title="Copy selected to another page">Copy to page</button>
         <button class="buttons btn-outline-light" id="smDelete" title="Delete selected">Delete</button>
       </div>
 
@@ -267,6 +267,30 @@
       </div>
       <div class="modal-footer">
         <button id="smCmdDone" type="button" class="buttons btn-success">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Copy to Page Modal -->
+<div class="modal fade" id="smCopyPageModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title">Copy widget to page</h4>
+        <button type="button" class="close btn-close" data-dismiss="modal" data-bs-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="sm-field">
+          <label>Target page</label>
+          <select id="smCopyPageSelect" class="form-control"></select>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;">
+          <button class="buttons btn-outline-light" type="button" data-dismiss="modal" data-bs-dismiss="modal">Cancel</button>
+          <button class="buttons btn-primary" id="smCopyPageDo" type="button">Copy</button>
+        </div>
       </div>
     </div>
   </div>

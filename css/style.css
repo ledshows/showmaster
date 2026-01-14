@@ -35,20 +35,31 @@
 
 .sm-brand{display:flex; align-items:center; gap:10px;}
 .sm-logo{
-  width:160px;height:80px;border-radius:14px; padding:0 12px;
-  display:flex;align-items:center;justify-content:center;
-  background:linear-gradient(135deg, rgba(0,229,255,0.22), rgba(168,85,247,0.18));
-  border:1px solid var(--sm-border2);
-  box-shadow:0 0 0 1px rgba(0,229,255,0.12), 0 10px 30px rgba(0,0,0,0.35);
+  width:200px;height:80px;border-radius:0; padding:0;
+  display:flex;align-items:center;justify-content:flex-start;
+  background:transparent;
+  border:none;
+  box-shadow:none;
   font-weight:700; letter-spacing:0.5px;
 }
 .sm-logo img{
   display:block;
-  width:150px;
-  height:70px;
+  width:200px;
+  height:80px;
   object-fit:contain;
-  filter: drop-shadow(0 0 6px rgba(0,229,255,0.25));
+  filter:none;
 }
+
+/* More space between icon and text on widgets */
+.sm-widget .sm-inner i{display:inline-block; margin-right:12px;}
+
+/* If any info-icon is used in forms */
+.fa-info{margin-right:12px;}
+
+/* Modal close button size (avoid inheriting huge icon sizes) */
+.modal .modal-header .close,
+.modal .modal-header .btn-close{font-size:20px; width:32px; height:32px; line-height:32px; padding:0;}
+.modal .modal-header .close span{font-size:20px; line-height:32px;}
 .sm-title{font-size:14px; font-weight:700; line-height:1.1;}
 .sm-subtitle{font-size:12px; color:var(--sm-muted);}
 

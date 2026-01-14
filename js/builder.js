@@ -89,6 +89,40 @@ function widgetById(id) {
     setSelection(clone.id, true);
   }
 
+  function copySelectedToPage(targetPageId) {
+    var w = widgetById(state.selectedId);
+    if (!w) return;
+    ensurePages();
+    var target = null;
+    for (var i=0;i<state.pages.length;i++) if (state.pages[i].id === targetPageId) { target = state.pages[i]; break; }
+    if (!target) return;
+    var clone = $.extend(true, {}, w);
+    clone.id = uid(w.type || "widget");
+    // keep within bounds of target page
+    var ph = toInt(target.h || DEVICE_H, DEVICE_H);
+    clone.x = clamp(clone.x || 0, 0, DEVICE_W - 10);
+    clone.y = clamp(clone.y || 0, 0, ph - 10);
+    (target.widgets || (target.widgets = [])).push(clone);
+    toast("Copied to " + (target.name || target.id) + ".");
+  }
+
+  function fillCopyPageSelect() {
+    var $s = $("#smCopyPageSelect");
+    if (!$s.length) return;
+    $s.empty();
+    for (var i=0;i<state.pages.length;i++) {
+      var pg = state.pages[i];
+      $s.append($("<option></option>").attr("value", pg.id).text(pg.name || pg.id));
+    }
+    // default to next page if exists
+    var cur = currentPage();
+    if (cur && state.pages.length > 1) {
+      var pick = state.pages[0].id;
+      for (var j=0;j<state.pages.length;j++) if (state.pages[j].id !== cur.id) { pick = state.pages[j].id; break; }
+      $s.val(pick);
+    }
+  }
+
 
 
   function normalizeWidget(w) {
@@ -163,11 +197,11 @@ function widgetById(id) {
   function widgetText(w) {
     if (w.type === "status") return prettySource(w.source);
     if (w.type === "tab") {
-      var iconT = w.icon ? ("<i class=\'fa fa-" + esc(w.icon) + "\' style=\'font-size:" + (w.iconSize||14) + "px\'></i> ") : "";
+      var iconT = w.icon ? ("<i class=\'fa fa-" + esc(w.icon) + "\' style=\'font-size:" + (w.iconSize||14) + "px\'></i>") : "";
       return iconT + "<span>" + esc(w.label || "Tab") + "</span>";
     }
-    // action: icon + label
-    var icon = w.icon ? ("<i class='fa fa-" + esc(w.icon) + "' style='font-size:" + (w.iconSize||14) + "px'></i> ") : "";
+    // action: icon + label (spacing handled by CSS, not by trailing spaces)
+    var icon = w.icon ? ("<i class='fa fa-" + esc(w.icon) + "' style='font-size:" + (w.iconSize||14) + "px'></i>") : "";
     return icon + "<span>" + esc(w.label || "") + "</span>";
   }
 
@@ -178,7 +212,10 @@ function widgetById(id) {
 
   function renderCanvas() {
     ensureCanvasSizing();
-    try { $("#smZoomLabel").text(getZoomPercent() + "%"); } catch(ez) {}
+    try {
+      var zp = getZoomPercent();
+      $("#smZoomLabel").text(zp === 100 ? "Original size" : (zp + "%"));
+    } catch(ez) {}
     var $c = $("#smCanvas");
     document.getElementById('smCanvas').style.setProperty('--smCanvasBg', state.device.bg || '#070a12');
     // Keep the grid overlay element; only remove widgets.
@@ -225,6 +262,7 @@ function widgetById(id) {
       })(state.pages[i], i);
     }
     try { $("#smPageHeight").val(currentPage().h || DEVICE_H); } catch(e) {}
+    fillCopyPageSelect();
   }
 
   function deletePage(pageId) {
@@ -405,14 +443,35 @@ function makeInteractive($el, w) {
   }
 
   function bindProps() {
-    function updatePosSize() {
+    // IMPORTANT: don't constantly re-render the form while typing, or number fields become untypeable.
+    function updatePosSizeLive() {
       var w = widgetById(state.selectedId); if (!w) return;
-      w.x = toInt($("#smX").val(), w.x); w.y = toInt($("#smY").val(), w.y);
-      w.w = toInt($("#smW").val(), w.w); w.h = toInt($("#smH").val(), w.h);
-      if (state.snap) { w.x = Math.round(w.x/GRID)*GRID; w.y = Math.round(w.y/GRID)*GRID; w.w = Math.round(w.w/GRID)*GRID; w.h = Math.round(w.h/GRID)*GRID; }
-      normalizeWidget(w); renderCanvas(); renderProps();
+      w.x = toInt($("#smX").val(), w.x);
+      w.y = toInt($("#smY").val(), w.y);
+      w.w = toInt($("#smW").val(), w.w);
+      w.h = toInt($("#smH").val(), w.h);
+      normalizeWidget(w);
+      renderCanvas();
+      highlightSelection(w.id);
     }
-    $("#smX,#smY,#smW,#smH").off("input change").on("input change", updatePosSize);
+    function updatePosSizeCommit() {
+      var w = widgetById(state.selectedId); if (!w) return;
+      w.x = toInt($("#smX").val(), w.x);
+      w.y = toInt($("#smY").val(), w.y);
+      w.w = toInt($("#smW").val(), w.w);
+      w.h = toInt($("#smH").val(), w.h);
+      if (state.snap) {
+        w.x = Math.round(w.x/GRID)*GRID;
+        w.y = Math.round(w.y/GRID)*GRID;
+        w.w = Math.round(w.w/GRID)*GRID;
+        w.h = Math.round(w.h/GRID)*GRID;
+      }
+      normalizeWidget(w);
+      renderCanvas();
+      renderProps();
+    }
+    $("#smX,#smY,#smW,#smH").off("input").on("input", updatePosSizeLive);
+    $("#smX,#smY,#smW,#smH").off("change blur").on("change blur", updatePosSizeCommit);
 
     $("#smBg,#smFg,#smBorder").off("input change").on("input change", function(){
       var w = widgetById(state.selectedId); if (!w) return;
@@ -447,10 +506,17 @@ function makeInteractive($el, w) {
       renderCanvas(); renderProps();
     });
 
-    $("#smIconSize").off("input change").on("input change", function(){
+    $("#smIconSize").off("input").on("input", function(){
       var w = widgetById(state.selectedId); if (!w || (w.type!=="action" && w.type!=="tab")) return;
       w.iconSize = clamp(toInt($(this).val(), 14), 8, 64);
-      renderCanvas(); renderProps();
+      renderCanvas();
+      highlightSelection(w.id);
+    });
+    $("#smIconSize").off("change blur").on("change blur", function(){
+      var w = widgetById(state.selectedId); if (!w || (w.type!=="action" && w.type!=="tab")) return;
+      w.iconSize = clamp(toInt($(this).val(), 14), 8, 64);
+      renderCanvas();
+      renderProps();
     });
     $("#smTargetPage").off("change").on("change", function(){
       var w = widgetById(state.selectedId); if (!w || w.type!=="tab") return;
@@ -488,10 +554,31 @@ function makeInteractive($el, w) {
 
     $("#smCopy").off("click").on("click", function(e){ e.preventDefault(); duplicateSelected(); });
 
+    $("#smCopyToPage").off("click").on("click", function(e){
+      e.preventDefault();
+      if (!state.selectedId) return;
+      fillCopyPageSelect();
+      try {
+        if ($("#smCopyPageModal").modal) { $("#smCopyPageModal").modal("show"); }
+        else if (window.bootstrap && window.bootstrap.Modal) { (window.bootstrap.Modal.getInstance(document.getElementById("smCopyPageModal")) || new window.bootstrap.Modal(document.getElementById("smCopyPageModal"))).show(); }
+      } catch(ex) { $("#smCopyPageModal").addClass("show").show(); }
+    });
+
+    $("#smCopyPageDo").off("click").on("click", function(){
+      var t = $("#smCopyPageSelect").val();
+      if (!t) return;
+      copySelectedToPage(t);
+      try {
+        if ($("#smCopyPageModal").modal) { $("#smCopyPageModal").modal("hide"); }
+        else if (window.bootstrap && window.bootstrap.Modal) { (window.bootstrap.Modal.getInstance(document.getElementById("smCopyPageModal")) || new window.bootstrap.Modal(document.getElementById("smCopyPageModal"))).hide(); }
+      } catch(ex) { $("#smCopyPageModal").removeClass("show").hide(); }
+    });
+
     // Modal close failsafe (Bootstrap 4/5 or no-bootstrap environments)
     $(document).off("click.smModalClose").on("click.smModalClose",
       "#smIconModal [data-dismiss=\"modal\"], #smIconModal [data-bs-dismiss=\"modal\"], #smIconModal .close, " +
-      "#smCmdModal [data-dismiss=\"modal\"], #smCmdModal [data-bs-dismiss=\"modal\"], #smCmdModal .close",
+      "#smCmdModal [data-dismiss=\"modal\"], #smCmdModal [data-bs-dismiss=\"modal\"], #smCmdModal .close, " +
+      "#smCopyPageModal [data-dismiss=\"modal\"], #smCopyPageModal [data-bs-dismiss=\"modal\"], #smCopyPageModal .close",
       function(e){
         e.preventDefault();
         var $m = $(this).closest(".modal");
@@ -565,6 +652,29 @@ function makeInteractive($el, w) {
   function openCommandModal() {
     var w = widgetById(state.selectedId);
     if (!w || (w.type!=="action" && w.type!=="tab")) return;
+
+    // If the FPP core Command Editor exists (newer FPP UI), use it.
+    // This keeps behavior consistent with the built-in "FPP Command Editor".
+    try {
+      var doneCb = function(cmd, args){
+        if (typeof cmd === "string") w.command = cmd;
+        if (args && typeof args === "object") w.args = args;
+        renderCanvas();
+        renderProps();
+      };
+      if (window.FPPCommandEditor && typeof window.FPPCommandEditor.open === "function") {
+        window.FPPCommandEditor.open(w.command || "", w.args || {}, doneCb);
+        return;
+      }
+      if (window.CommandEditor && typeof window.CommandEditor.open === "function") {
+        window.CommandEditor.open(w.command || "", w.args || {}, doneCb);
+        return;
+      }
+      if (typeof window.ShowCommandEditor === "function") {
+        window.ShowCommandEditor(w.command || "", w.args || {}, doneCb);
+        return;
+      }
+    } catch(ex) {}
 
     var $sel = $("#smCmdSelect"); $sel.empty();
     $sel.append("<option value='' disabled>Select a Command</option>");
