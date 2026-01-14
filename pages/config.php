@@ -11,14 +11,12 @@
     </div>
 
     <div class="sm-actions">
-      <button class="buttons btn-outline-light" id="smAddAction">+ Action</button>
-      <button class="buttons btn-outline-light" id="smAddStatus">+ Status</button>
-      <button class="buttons btn-outline-light" id="smAddTab">+ Tab</button>
       <button class="buttons btn-success" id="smSave">Save</button>
       <button class="buttons btn-outline-light" id="smLoad">Load JSON</button>
       <button class="buttons btn-outline-light" id="smDownload" type="button">Download JSON</button>
       <div class="sm-upload">
         <input class="sm-ip" id="smDeviceIp" placeholder="Showmaster IP (e.g. 192.168.1.50)" />
+        <button class="buttons btn-outline-light" id="smScan" type="button" title="Scan network for Showmaster">Scan</button>
         <button class="buttons btn-primary" id="smUpload" type="button">Push to Showmaster</button>
       </div>
 
@@ -55,10 +53,16 @@
 
     <div class="sm-props">
       <div class="sm-propsHeader">
-        <div class="sm-propsTitle"></div>
-        <button class="buttons btn-outline-light" id="smCopy" title="Duplicate selected">Copy</button>
-        <button class="buttons btn-outline-light" id="smCopyToPage" title="Copy selected to another page">Copy to page</button>
-        <button class="buttons btn-outline-light" id="smDelete" title="Delete selected">Delete</button>
+        <div class="sm-propsLeft">
+          <button class="buttons btn-outline-light sm-addBtn" id="smAddAction">+ Action</button>
+          <button class="buttons btn-outline-light sm-addBtn" id="smAddStatus">+ Status</button>
+          <button class="buttons btn-outline-light sm-addBtn" id="smAddTab">+ Tab</button>
+        </div>
+        <div class="sm-propsRight">
+          <button class="buttons btn-outline-light" id="smCopy" title="Duplicate selected">Copy</button>
+          <button class="buttons btn-outline-light" id="smCopyToPage" title="Copy selected to another page">Copy to page</button>
+          <button class="buttons btn-outline-light" id="smDelete" title="Delete selected">Delete</button>
+        </div>
       </div>
 
       <div id="smNoSelection" class="sm-empty">Select a widget on the canvas.</div>

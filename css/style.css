@@ -191,7 +191,14 @@
 /* Command + Icon layout tweaks */
 .sm-commandStack{display:flex;flex-direction:column;gap:8px;}
 .sm-commandStack input{width:100%;}
-.sm-commandStack button{align-self:flex-start;}
+.sm-commandStack button{align-self:stretch; width:100%;}
+
+/* Props header layout */
+.sm-propsHeader{justify-content:space-between;}
+.sm-propsLeft,.sm-propsRight{display:flex; gap:8px; align-items:center;}
+
+/* Bigger + buttons */
+.sm-addBtn{padding:9px 12px; font-weight:700;}
 
 .sm-iconRowTop{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;}
 .sm-iconRowBottom{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-top:8px;}

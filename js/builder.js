@@ -176,9 +176,11 @@ function widgetById(id) {
     // Resize the canvas itself (no CSS transforms) so jQueryUI drag behaves correctly.
     $("#smCanvas").css({ width: cw + "px", height: ch + "px" });
 
-    // Apply background base color via CSS variable so gradients remain.
+    // Apply per-page background base color via CSS variable so gradients remain.
     try {
-      document.getElementById("smCanvas").style.setProperty("--smCanvasBg", state.device.bg || "#070a12");
+      var pg2 = currentPage();
+      var bg2 = (pg2 && pg2.bg) ? pg2.bg : (state.device.bg || "#070a12");
+      document.getElementById("smCanvas").style.setProperty("--smCanvasBg", bg2);
     } catch(e) {}
   }
 
@@ -229,7 +231,11 @@ function widgetById(id) {
       $("#smZoomLabel").text(zp === 100 ? "Original size" : (zp + "%"));
     } catch(ez) {}
     var $c = $("#smCanvas");
-    document.getElementById('smCanvas').style.setProperty('--smCanvasBg', state.device.bg || '#070a12');
+    try {
+      var pg3 = currentPage();
+      var bg3 = (pg3 && pg3.bg) ? pg3.bg : (state.device.bg || '#070a12');
+      document.getElementById('smCanvas').style.setProperty('--smCanvasBg', bg3);
+    } catch(eBg) {}
     // Keep the grid overlay element; only remove widgets.
     $c.find('.sm-widget').remove();
     if (!$c.find('.sm-grid').length) {
@@ -796,8 +802,16 @@ function makeInteractive($el, w) {
     { id:"player.currentPlaylist", label:"Player: Current playlist" },
     { id:"player.currentSequence", label:"Player: Current sequence" },
     { id:"player.mode", label:"Player: Mode" },
+    { id:"player.playlistPosition", label:"Player: Playlist position" },
+    { id:"player.sequencePosition", label:"Player: Sequence position" },
+    { id:"player.repeat", label:"Player: Repeat" },
     { id:"player.volume", label:"Player: Volume" },
+    { id:"system.hostname", label:"System: Hostname" },
     { id:"system.cpuTemp", label:"System: CPU temp" },
+    { id:"system.cpuLoad", label:"System: CPU load" },
+    { id:"system.memFree", label:"System: Free memory" },
+    { id:"system.diskFree", label:"System: Free disk" },
+    { id:"system.time", label:"System: Time" },
     { id:"system.ip", label:"System: IP address" }
   ];
   function prettySource(id) {
@@ -1044,6 +1058,24 @@ function makeInteractive($el, w) {
     });
 
     $("#smUpload").off("click").on("click", function(e){ e.preventDefault(); pushToShowmaster(); });
+
+    // Scan for Showmaster on local network (best-effort)
+    $("#smScan").off("click").on("click", function(e){
+      e.preventDefault();
+      var $btn = $(this);
+      $btn.prop('disabled', true).text('Scanning...');
+      $.getJSON('plugin.php?plugin=showmaster&file=api/scan.php&nopage=1')
+        .done(function(res){
+          if (res && res.ok && res.host) {
+            $('#smDeviceIp').val(res.host);
+            toast('Found: ' + res.host);
+          } else {
+            toast('Not found. Try opening Showmaster once, then scan again.', true);
+          }
+        })
+        .fail(function(){ toast('Scan failed.', true); })
+        .always(function(){ $btn.prop('disabled', false).text('Scan'); });
+    });
 
     $("#smDownload").off("click").on("click", function(e){
       e.preventDefault();
