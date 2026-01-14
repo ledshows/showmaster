@@ -54,9 +54,9 @@
     <div class="sm-props">
       <div class="sm-propsHeader">
         <div class="sm-propsRow sm-propsRowAdd">
-          <button class="buttons btn-outline-light sm-addBtn" id="smAddAction">+ Action</button>
-          <button class="buttons btn-outline-light sm-addBtn" id="smAddStatus">+ Status</button>
-          <button class="buttons btn-outline-light sm-addBtn" id="smAddTab">+ Tab</button>
+          <button class="buttons btn-outline-light sm-addBtn" id="smAddAction"><span class="smPlus">+</span><span class="smBtnText">Action</span></button>
+          <button class="buttons btn-outline-light sm-addBtn" id="smAddStatus"><span class="smPlus">+</span><span class="smBtnText">Status</span></button>
+          <button class="buttons btn-outline-light sm-addBtn" id="smAddTab"><span class="smPlus">+</span><span class="smBtnText">Tab</span></button>
         </div>
         <div class="sm-propsRow sm-propsRowOps">
           <button class="buttons btn-outline-light" id="smCopy" title="Duplicate selected">Copy</button>
@@ -64,8 +64,6 @@
           <button class="buttons btn-outline-light" id="smDelete" title="Delete selected">Delete</button>
         </div>
       </div>
-
-</div>
 
       <div id="smNoSelection" class="sm-empty">Select a widget on the canvas.</div>
 

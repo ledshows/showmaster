@@ -151,10 +151,10 @@
 .sm-grid{
   position:absolute; inset:0;
   background-image:
-    linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px);
+    linear-gradient(rgba(255,255,255,0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.12) 1px, transparent 1px);
   background-size: 10px 10px;
-  opacity:0.45;
+  opacity:0.55;
   pointer-events:none;
 }
 
@@ -549,13 +549,13 @@
 .sm-zoomSlider::-webkit-slider-thumb{
   -webkit-appearance:none;
   appearance:none;
-  width:14px; height:14px;
+  width:12px; height:12px;
   border-radius:50%;
   background: rgba(255,255,255,0.85);
   border:1px solid rgba(0,0,0,0.25);
 }
 .sm-zoomSlider::-moz-range-thumb{
-  width:14px; height:14px;
+  width:12px; height:12px;
   border-radius:50%;
   background: rgba(255,255,255,0.85);
   border:1px solid rgba(0,0,0,0.25);
@@ -568,20 +568,39 @@
   gap:8px;
 }
 .sm-check input[type="checkbox"]{
-  width:20px;
-  height:20px;
+  width:26px;
+  height:26px;
   accent-color: #39d353;
 }
 .sm-checkText{order:-1;}
 
 /* Properties header layout */
 .sm-propsHeader{display:flex;flex-direction:column;gap:10px;}
-.sm-propsRow{display:flex;gap:10px;}
-.sm-propsRowAdd .buttons,
+.sm-propsRow{display:flex;gap:8px;}
+
+/* Add buttons: big, fill the box with ~2px padding */
+.sm-propsRowAdd{padding:2px; gap:6px;}
+.sm-propsRowAdd .buttons{
+  flex:1;
+  padding:14px 8px;
+  font-size:13px;
+  font-weight:800;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  min-height:64px;
+}
+.sm-propsRowAdd .smPlus{font-size:22px; line-height:1; margin-bottom:4px;}
+.sm-propsRowAdd .smBtnText{font-size:13px; line-height:1;}
+
+/* Ops buttons: smaller and under the add buttons */
+.sm-propsRowOps{padding:2px; gap:6px;}
 .sm-propsRowOps .buttons{
   flex:1;
-  padding:10px 12px;
-  font-size:13px;
+  padding:8px 10px;
+  font-size:12px;
+  min-height:38px;
 }
 
 /* Command picker full-width */
