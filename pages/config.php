@@ -15,11 +15,11 @@
       <button class="buttons btn-outline-light" id="smAddStatus">+ Status</button>
       <button class="buttons btn-outline-light" id="smAddTab">+ Tab</button>
       <button class="buttons btn-success" id="smSave">Save</button>
-      <button class="buttons btn-outline-light" id="smLoad">Load</button>
+      <button class="buttons btn-outline-light" id="smLoad">Load JSON</button>
+      <button class="buttons btn-outline-light" id="smDownload" type="button">Download JSON</button>
       <div class="sm-upload">
         <input class="sm-ip" id="smDeviceIp" placeholder="Showmaster IP (e.g. 192.168.1.50)" />
         <button class="buttons btn-primary" id="smUpload" type="button">Push to Showmaster</button>
-        <button class="buttons btn-outline-light" id="smDownload" type="button">Download JSON</button>
       </div>
 
       <!-- hidden file input used by the Load button -->
@@ -50,9 +50,7 @@
         <div class="sm-grid"></div>
       </div>
       </div>
-      <div class="sm-hint">
-        Tip: click a widget to edit • drag inside canvas • resize from corners • Del to remove
-      </div>
+      <!-- hint removed -->
     </div>
 
     <div class="sm-props">
@@ -67,8 +65,13 @@
 
       <div id="smPropsForm" class="sm-propsForm" style="display:none;">
         <div class="sm-field">
-          <label>Type</label>
+          <label>Button type</label>
           <input id="smType" disabled />
+        </div>
+
+        <div class="sm-field" id="smLabelField">
+          <label>Label</label>
+          <input id="smLabel" maxlength="40" />
         </div>
 
         <div class="sm-row2">
@@ -129,12 +132,8 @@
 
 	<div id="smActionFields">
           <div class="sm-field">
-            <label>Label</label>
-            <input id="smLabel" maxlength="40" />
-          </div>
-                  <div class="sm-field">
             <label>Command</label>
-            <div class="sm-iconRow">
+            <div class="sm-commandStack">
               <input id="smCommandDisplay" placeholder="Choose a command..." readonly />
               <button class="buttons btn-outline-light" id="smPickCommand" type="button">Choose…</button>
             </div>
@@ -148,18 +147,15 @@
           <input type="hidden" id="smCommand" />
           <input type="hidden" id="smCommandArgsJson" />
 
-          <div class="sm-row3">
-            <div class="sm-field">
-              <label>Icon</label>
-              <div class="sm-iconRow">
-                <input id="smIconValue" placeholder="(none)" readonly />
-                <button class="buttons btn-outline-light" id="smPickIcon" type="button">Select…</button>
-                <button class="buttons btn-outline-light" id="smClearIcon" type="button">Clear</button>
-              </div>
+          <div class="sm-field">
+            <label>Icon</label>
+            <div class="sm-iconRowTop">
+              <input id="smIconValue" placeholder="(none)" readonly />
+              <button class="buttons btn-outline-light" id="smPickIcon" type="button">Select…</button>
             </div>
-            <div class="sm-field">
-              <label>Icon size</label>
+            <div class="sm-iconRowBottom">
               <input id="smIconSize" type="number" min="8" max="64" step="1" />
+              <button class="buttons btn-outline-light" id="smClearIcon" type="button">Clear</button>
             </div>
           </div>
 
@@ -173,19 +169,30 @@
           </div>
         </div>
 
-        <div class="sm-field">
-          <label>Widget ID</label>
-          <input id="smId" disabled />
-        </div>
+        <!-- widget id removed -->
       </div>
 
-      <div class="sm-footerNote">
-        Config is saved to <code>/home/fpp/media/config/plugin.showmaster.json</code>
-      </div>
+      <!-- footer note removed -->
     </div>
   </div>
 
   <div id="smToast" class="sm-toast" style="display:none;"></div>
+</div>
+
+<!-- Hidden FPP Command Editor Host (BigButtons-style) -->
+<div id="smFppCmdWrap" style="display:none;">
+  <div class="bb_commandTableWrap">
+    <div class="bb_commandTableCrop">
+      <table border="0" id="tableSmCmd" class="tableButton">
+        <tr>
+          <td>Command:</td>
+          <td>
+            <select id="smFppCmdSelect" class="form-control"><option value="" disabled selected>Select a Command</option></select>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
 </div>
 
 <script src="plugin.php?plugin=showmaster&file=js/fa-icons.js&nopage=1"></script>

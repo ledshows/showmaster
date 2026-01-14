@@ -141,7 +141,8 @@ function widgetById(id) {
     if (typeof w.radius === "undefined") w.radius = 10;
     if (typeof w.textSize === "undefined") w.textSize = 12;
     if (typeof w.iconSize === "undefined") w.iconSize = 14;
-    if (!w.label && w.type === "action") w.label = "Button";
+    // Allow empty labels (icon-only buttons). Only set a default if label is undefined.
+    if (typeof w.label === "undefined" && (w.type === "action" || w.type === "tab")) w.label = "";
     if (!w.source && w.type === "status") w.source = "player.statusText";
     if (!w.command && w.type === "action") w.command = "";
     if (!w.args && w.type === "action") w.args = {};
@@ -407,7 +408,6 @@ function makeInteractive($el, w) {
     $('#smCopyToPage').prop('disabled', false);
 
     $("#smType").val(w.type);
-    $("#smId").val(w.id);
     $("#smX").val(w.x); $("#smY").val(w.y); $("#smW").val(w.w); $("#smH").val(w.h);
     $("#smBg").val(w.bg);
     $("#smFg").val(w.text);
@@ -416,6 +416,7 @@ function makeInteractive($el, w) {
     $("#smRadius").val(w.radius);
     $("#smFontSize").val(w.textSize);
 
+    $("#smLabelField").toggle(w.type === "action" || w.type === "tab");
     $("#smActionFields").toggle(w.type === "action" || w.type === "tab");
     $("#smStatusFields").toggle(w.type === "status");
 
@@ -424,8 +425,8 @@ function makeInteractive($el, w) {
     if (w.type === "action") {
       if ($cmdField.length) $cmdField.show();
       if ($tabField.length) $tabField.hide();
-      $("#smLabel").val(w.label || "");
-      $("#smIconValue").val(w.icon || "columns");
+      $("#smLabel").val(typeof w.label === "string" ? w.label : "");
+      $("#smIconValue").val(w.icon || "");
       $("#smIconSize").val(w.iconSize || 14);
       $("#smCommandDisplay").val(w.command ? w.command : "");
       $("#smCommand").val(w.command || "");
@@ -433,7 +434,7 @@ function makeInteractive($el, w) {
     } else if (w.type === "tab") {
       if ($cmdField.length) $cmdField.hide();
       if ($tabField.length) $tabField.show();
-      $("#smLabel").val(w.label || "");
+      $("#smLabel").val(typeof w.label === "string" ? w.label : "");
       $("#smIconValue").val(w.icon || "");
       $("#smIconSize").val(w.iconSize || 14);
       // fill target pages
@@ -661,102 +662,52 @@ function makeInteractive($el, w) {
     var w = widgetById(state.selectedId);
     if (!w || (w.type!=="action" && w.type!=="tab")) return;
 
-    // Helper: capture values from the visible FPP Command Editor modal
-    function captureFromFppModal() {
-      try {
-        var $m = $(".modal:visible");
-        if (!$m.length) return null;
-        // pick the one that looks like the command editor (has 'Accept Changes')
-        var $cm = null;
-        $m.each(function(){
-          var t = ($(this).find('.modal-title').first().text() || '').trim();
-          var hasAccept = $(this).find('button, a').filter(function(){
-            return (($(this).text()||'').trim().toLowerCase() === 'accept changes');
-          }).length > 0;
-          if (hasAccept && (t.toLowerCase().indexOf('command') >= 0 || t.toLowerCase().indexOf('fpp') >= 0)) { $cm = $(this); return false; }
-        });
-        if (!$cm) $cm = $m.first();
-        // command name
-        var cmdName = "";
-        var $cmdSel = null;
-        $cm.find('label').each(function(){
-          var txt = (($(this).text()||'').trim().toLowerCase());
-          if (txt === 'command:' || txt === 'command') {
-            var $next = $(this).closest('div').find('select').first();
-            if ($next.length) { $cmdSel = $next; return false; }
+    // BigButtons-style: use the built-in FPP Command Editor helpers so the command + args
+    // are serialized exactly like other plugins (CommandToJSON + CommandSelectChanged).
+    if ($.fn.fppDialog && typeof window.LoadCommandList === 'function' && typeof window.CommandToJSON === 'function' && typeof window.CommandSelectChanged === 'function') {
+      // Prepare the hidden host table
+      $('#smFppCmdSelect').off('change').on('change', function(){
+        try { window.CommandSelectChanged('smFppCmdSelect', 'tableSmCmd', true); } catch(e) {}
+      });
+
+      // Populate list (FPP caches internally)
+      try { window.LoadCommandList('smFppCmdSelect'); } catch(e2) {}
+
+      // Restore existing selection
+      if (w.command) {
+        $('#smFppCmdSelect').val(w.command);
+        try { window.CommandSelectChanged('smFppCmdSelect', 'tableSmCmd', true); } catch(e3) {}
+      }
+
+      // Open dialog
+      $('#smFppCmdWrap').fppDialog({
+        title: 'FPP Command Editor',
+        width: 820,
+        buttons: {
+          'Done': {
+            click: function(){
+              var tmp = {};
+              try { window.CommandToJSON('smFppCmdSelect', 'tableSmCmd', tmp); } catch(e4) {}
+              // Persist on widget in a firmware-friendly way (same keys as BigButtons)
+              if (tmp.command !== undefined) w.command = tmp.command;
+              if (tmp.args !== undefined) w.args = tmp.args;
+              if (tmp.multisyncCommand !== undefined) w.multisyncCommand = tmp.multisyncCommand;
+              if (tmp.multisyncHosts !== undefined) w.multisyncHosts = tmp.multisyncHosts;
+
+              $('#smCommandDisplay').val(w.command || '');
+              $('#smCommand').val(w.command || '');
+              $('#smCommandArgsJson').val(w.args ? JSON.stringify(w.args) : '{}');
+
+              try { $('#smFppCmdWrap').fppDialog('close'); } catch(e5) {}
+              renderCanvas();
+              renderProps();
+            },
+            class: 'btn-success'
           }
-        });
-        if (!$cmdSel || !$cmdSel.length) $cmdSel = $cm.find('select').first();
-        if ($cmdSel && $cmdSel.length) cmdName = $cmdSel.find('option:selected').first().text() || $cmdSel.val() || "";
-
-        var args = {};
-        $cm.find('.modal-body').find('input, select, textarea').each(function(){
-          var el = this;
-          var key = el.id || el.name;
-          if (!key) return;
-          var type = (el.type || '').toLowerCase();
-          if (type === 'button' || type === 'submit') return;
-          if (type === 'checkbox') args[key] = !!el.checked;
-          else args[key] = $(el).val();
-        });
-        return { command: cmdName, args: args };
-      } catch(ex) {
-        return null;
-      }
+        }
+      });
+      return;
     }
-
-    function bindFppAcceptOnce() {
-      try {
-        setTimeout(function(){
-          var $m = $(".modal:visible");
-          if (!$m.length) return;
-          var $accept = $m.find('button, a').filter(function(){
-            return (($(this).text()||'').trim().toLowerCase() === 'accept changes');
-          }).first();
-          if (!$accept.length) return;
-          if ($accept.data('smBound')) return;
-          $accept.data('smBound', true);
-          $accept.on('click.smCapture', function(){
-            var captured = captureFromFppModal();
-            if (captured) {
-              w.command = captured.command || w.command || "";
-              w.args = captured.args || {};
-              // keep the hidden fields in sync
-              $("#smCommandDisplay").val(w.command || "");
-              $("#smCommand").val(w.command || "");
-              $("#smCommandArgsJson").val(w.args ? JSON.stringify(w.args) : "{}");
-              setTimeout(function(){ renderCanvas(); renderProps(); }, 0);
-            }
-          });
-        }, 150);
-      } catch(ex) {}
-    }
-
-    // If the FPP core Command Editor exists (newer FPP UI), use it.
-    // This keeps behavior consistent with the built-in "FPP Command Editor".
-    try {
-      var doneCb = function(cmd, args){
-        if (typeof cmd === "string") w.command = cmd;
-        if (args && typeof args === "object") w.args = args;
-        renderCanvas();
-        renderProps();
-      };
-      if (window.FPPCommandEditor && typeof window.FPPCommandEditor.open === "function") {
-        window.FPPCommandEditor.open(w.command || "", w.args || {}, doneCb);
-        bindFppAcceptOnce();
-        return;
-      }
-      if (window.CommandEditor && typeof window.CommandEditor.open === "function") {
-        window.CommandEditor.open(w.command || "", w.args || {}, doneCb);
-        bindFppAcceptOnce();
-        return;
-      }
-      if (typeof window.ShowCommandEditor === "function") {
-        window.ShowCommandEditor(w.command || "", w.args || {}, doneCb);
-        bindFppAcceptOnce();
-        return;
-      }
-    } catch(ex) {}
 
     var $sel = $("#smCmdSelect"); $sel.empty();
     $sel.append("<option value='' disabled>Select a Command</option>");

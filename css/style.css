@@ -138,13 +138,13 @@
   position:relative;
   width:320px;
   height:240px;
-  border-radius:14px;
+  border-radius:0;
   background:
     radial-gradient(240px 120px at 10% 0%, rgba(0,229,255,0.12), transparent 60%),
     radial-gradient(240px 120px at 90% 0%, rgba(168,85,247,0.10), transparent 60%),
     var(--smCanvasBg, #070a12);
-  border:1px solid var(--sm-border2);
-  box-shadow:0 0 0 1px rgba(0,229,255,0.10), 0 18px 50px rgba(0,0,0,0.45);
+  border:0;
+  box-shadow:none;
   overflow:hidden;
 }
 
@@ -187,6 +187,15 @@
 }
 
 .sm-hint{margin-top:10px; font-size:12px; color:var(--sm-muted);}
+
+/* Command + Icon layout tweaks */
+.sm-commandStack{display:flex;flex-direction:column;gap:8px;}
+.sm-commandStack input{width:100%;}
+.sm-commandStack button{align-self:flex-start;}
+
+.sm-iconRowTop{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;}
+.sm-iconRowBottom{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-top:8px;}
+.sm-iconRowBottom input{width:100%;}
 
 .sm-props{
   background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
@@ -453,4 +462,11 @@
 .sm-pageHeight{width:84px;}
 
 /* Scrollable viewport */
-.sm-canvasViewport{overflow:auto;max-width:100%;border-radius:18px;}
+.sm-canvasViewport{overflow:auto;max-width:100%;border-radius:0;}
+
+/* Page height input requested style */
+.sm-pageHeightInline{
+  color:#171720 !important;
+  border:1px solid #D2D2D2 !important;
+  background:rgba(255,255,255,0.92) !important;
+}
