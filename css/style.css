@@ -151,10 +151,10 @@
 .sm-grid{
   position:absolute; inset:0;
   background-image:
-    linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+    linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px);
   background-size: 10px 10px;
-  opacity:0.35;
+  opacity:0.45;
   pointer-events:none;
 }
 
@@ -533,3 +533,58 @@
   line-height:1 !important;
 }
 
+
+#smZoom{max-width:300px;width:300px;}
+
+/* Zoom slider styling */
+.sm-zoomSlider{
+  -webkit-appearance:none;
+  appearance:none;
+  height:10px;
+  border-radius:10px;
+  background: rgba(255,255,255,0.10);
+  border:1px solid rgba(255,255,255,0.18);
+  outline:none;
+}
+.sm-zoomSlider::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  appearance:none;
+  width:14px; height:14px;
+  border-radius:50%;
+  background: rgba(255,255,255,0.85);
+  border:1px solid rgba(0,0,0,0.25);
+}
+.sm-zoomSlider::-moz-range-thumb{
+  width:14px; height:14px;
+  border-radius:50%;
+  background: rgba(255,255,255,0.85);
+  border:1px solid rgba(0,0,0,0.25);
+}
+
+/* Snap checkbox */
+.sm-check{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+}
+.sm-check input[type="checkbox"]{
+  width:20px;
+  height:20px;
+  accent-color: #39d353;
+}
+.sm-checkText{order:-1;}
+
+/* Properties header layout */
+.sm-propsHeader{display:flex;flex-direction:column;gap:10px;}
+.sm-propsRow{display:flex;gap:10px;}
+.sm-propsRowAdd .buttons,
+.sm-propsRowOps .buttons{
+  flex:1;
+  padding:10px 12px;
+  font-size:13px;
+}
+
+/* Command picker full-width */
+.sm-commandStack{display:flex;flex-direction:column;gap:8px;}
+#smCommandDisplay{width:100%;}
+#smPickCommand{width:100%;}

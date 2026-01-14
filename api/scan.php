@@ -8,8 +8,8 @@ function tryHost($host) {
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT_MS, 400);
-    curl_setopt($ch, CURLOPT_TIMEOUT_MS, 600);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT_MS, 1200);
+    curl_setopt($ch, CURLOPT_TIMEOUT_MS, 1800);
     curl_setopt($ch, CURLOPT_RANGE, '0-2048');
     $body = curl_exec($ch);
     $code = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
@@ -48,6 +48,22 @@ if (is_readable($arpFile)) {
     }
 }
 
+
+// If ARP cache is empty, try a small set of common IPs in our /24
+if (count($candidates) === 0) {
+    $myIp = trim(shell_exec("hostname -I 2>/dev/null"));
+    if ($myIp) {
+        $myIp = preg_split('/\s+/', $myIp)[0];
+    }
+    if (filter_var($myIp, FILTER_VALIDATE_IP)) {
+        $parts = explode('.', $myIp);
+        if (count($parts) === 4) {
+            $prefix = $parts[0] . "." . $parts[1] . "." . $parts[2] . ".";
+            $common = [1,10,20,30,40,50,60,70,80,90,100,110,120,130,140,150,200,210,220,230,240,250];
+            foreach ($common as $o) $candidates[] = $prefix . $o;
+        }
+    }
+}
 // De-dupe, keep it short
 $candidates = array_values(array_unique($candidates));
 $candidates = array_slice($candidates, 0, 64);

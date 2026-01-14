@@ -31,7 +31,7 @@
         <div class="sm-canvasTools">
           <span class="sm-toolLabel">Background</span>
           <input id="smCanvasBg" type="color" value="#0b1020" title="Canvas background" />
-          <label class="sm-check"><input id="smGridToggle" type="checkbox" checked /> Snap</label>
+          <label class="sm-check"><span class="sm-checkText">Snap</span><input id="smGridToggle" type="checkbox" checked /></label>
           <span class="sm-toolLabel sm-ml">Zoom</span>
           <input id="smZoom" class="sm-zoomSlider" type="range" min="100" max="300" step="25" value="200" />
           <span id="smZoomLabel" class="sm-zoomLabel">200%</span>
@@ -53,17 +53,19 @@
 
     <div class="sm-props">
       <div class="sm-propsHeader">
-        <div class="sm-propsLeft">
+        <div class="sm-propsRow sm-propsRowAdd">
           <button class="buttons btn-outline-light sm-addBtn" id="smAddAction">+ Action</button>
           <button class="buttons btn-outline-light sm-addBtn" id="smAddStatus">+ Status</button>
           <button class="buttons btn-outline-light sm-addBtn" id="smAddTab">+ Tab</button>
         </div>
-        <div class="sm-propsRight">
+        <div class="sm-propsRow sm-propsRowOps">
           <button class="buttons btn-outline-light" id="smCopy" title="Duplicate selected">Copy</button>
           <button class="buttons btn-outline-light" id="smCopyToPage" title="Copy selected to another page">Copy to page</button>
           <button class="buttons btn-outline-light" id="smDelete" title="Delete selected">Delete</button>
         </div>
       </div>
+
+</div>
 
       <div id="smNoSelection" class="sm-empty">Select a widget on the canvas.</div>
 
