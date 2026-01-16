@@ -15,13 +15,14 @@
       <button class="buttons btn-outline-light" id="smLoad">Load JSON</button>
       <button class="buttons btn-outline-light" id="smDownload" type="button">Download JSON</button>
       <div class="sm-upload">
-        <input class="sm-ip" id="smDeviceIp" placeholder="Showmaster IP (e.g. 192.168.1.50)" list="smScannedIps" />
-        <datalist id="smScannedIps"></datalist>
-        <button class="buttons btn-outline-light" id="smScan" type="button" title="Scan network for Showmaster">Scan</button>
-        <button class="buttons btn-primary" id="smUpload" type="button">Push to Showmaster</button>
-        <!-- Notice/toast anchored above the Push button (grows left when text is longer) -->
         <div class="sm-toastAreaTop">
           <div id="smToast" class="sm-toast" style="display:none;"></div>
+        </div>
+        <div class="sm-uploadRow">
+          <input class="sm-ip" id="smDeviceIp" placeholder="Showmaster IP (e.g. 192.168.1.50)" list="smScannedIps" />
+          <datalist id="smScannedIps"></datalist>
+          <button class="buttons btn-outline-light" id="smScan" type="button" title="Scan network for Showmaster">Scan</button>
+          <button class="buttons btn-primary" id="smUpload" type="button">Push to Showmaster</button>
         </div>
       </div>
 
@@ -60,9 +61,9 @@
     <div class="sm-props">
       <div class="sm-propsHeader">
         <div class="sm-propsRow sm-propsRowAdd">
-          <button class="buttons btn-outline-light sm-addBtn" id="smAddAction"><span class="smPlus">+</span><span class="smBtnText">Action</span></button>
-          <button class="buttons btn-outline-light sm-addBtn" id="smAddStatus"><span class="smPlus">+</span><span class="smBtnText">Status</span></button>
-          <button class="buttons btn-outline-light sm-addBtn" id="smAddTab"><span class="smPlus">+</span><span class="smBtnText">Tab</span></button>
+          <button class="buttons btn-outline-light sm-addBtn" id="smAddAction" title="Add action button to canvas"><span class="smPlus">+</span><span class="smBtnText">Action</span></button>
+          <button class="buttons btn-outline-light sm-addBtn" id="smAddStatus" title="Add status button to canvas"><span class="smPlus">+</span><span class="smBtnText">Status</span></button>
+          <button class="buttons btn-outline-light sm-addBtn" id="smAddTab" title="Add tab button to canvas"><span class="smPlus">+</span><span class="smBtnText">Tab</span></button>
         </div>
         <div class="sm-propsRow sm-propsRowOps">
           <button class="buttons btn-outline-light" id="smCopy" title="Duplicate selected">Copy</button>
