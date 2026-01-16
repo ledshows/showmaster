@@ -1120,27 +1120,28 @@ function makeInteractive($el, w) {
           dbg('Scan response: ' + JSON.stringify(res));
           if (res && res.ok && res.hosts && res.hosts.length) {
             var hosts = res.hosts;
-            // Create a dropdown for multiple devices.
-            var $sel = $('#smScanList');
-            if (!$sel.length) {
-              $sel = $('<select id="smScanList" class="sm-ip" style="margin-top:6px"></select>');
-              $('#smDeviceIp').after($sel);
-              $sel.on('change', function(){
-                var v = ($(this).val() || '').trim();
-                if (v) $('#smDeviceIp').val(v);
+
+            // Use a single IP input + datalist suggestions (no second field / dropdown).
+            var $ip = $('#smDeviceIp');
+            var list = document.getElementById('smScannedIps');
+            if (list) {
+              // Clear and rebuild suggestions (unique)
+              while (list.firstChild) list.removeChild(list.firstChild);
+              var seen = {};
+              hosts.forEach(function(h){
+                var v = (h && h.host) ? String(h.host).trim() : '';
+                if (!v || seen[v]) return;
+                seen[v] = true;
+                var opt = document.createElement('option');
+                opt.value = v;
+                list.appendChild(opt);
               });
             }
-            $sel.empty();
-            hosts.forEach(function(h){
-              var label = h.host;
-              if (h.fw) label += '  (fw ' + h.fw + ')';
-              if (h.id) label += '  ' + h.id;
-              $sel.append($('<option>').val(h.host).text(label));
-            });
-            // pick first
-            $('#smDeviceIp').val(hosts[0].host);
-            $sel.val(hosts[0].host).show();
-            toast(hosts.length === 1 ? ('Found: ' + hosts[0].host) : ('Found ' + hosts.length + ' Showmasters. Select from list.'));
+
+            // Pick first result
+            if ($ip.length) $ip.val(hosts[0].host);
+
+            toast(hosts.length === 1 ? ('Found: ' + hosts[0].host) : ('Found ' + hosts.length + ' Showmasters. Click the IP field to choose.'));
           } else {
             toast('Not found. Try opening Showmaster once, then scan again.', true);
           }

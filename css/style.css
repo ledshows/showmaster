@@ -8,8 +8,40 @@
   --sm-muted:rgba(255,255,255,0.65);
   --sm-accent:#00e5ff;
   --sm-accent2:#a855f7;
+  --sm-grad-push: linear-gradient(90deg, rgba(0,229,255,0.95), rgba(168,85,247,0.92));
   --sm-good:#22c55e;
   --sm-bad:#ef4444;
+}
+
+/* --- Button tweaks requested --- */
+#smUpload{
+  background: var(--sm-grad-push) !important;
+  border: 1px solid rgba(0,229,255,0.55) !important;
+  color:#fff !important;
+}
+
+#smAddAction,#smAddStatus,#smAddTab{
+  background: var(--sm-grad-push) !important;
+  border: 1px solid rgba(255,255,255,0.14) !important;
+  color:#fff !important;
+}
+
+#smDelete{
+  background: linear-gradient(90deg, rgba(239,68,68,0.95), rgba(185,28,28,0.9)) !important;
+  border: 1px solid rgba(239,68,68,0.55) !important;
+  color:#fff !important;
+}
+
+#smCopy{
+  background: linear-gradient(90deg, rgba(47,224,167,0.95), rgba(26,163,122,0.9)) !important;
+  border: 1px solid rgba(47,224,167,0.55) !important;
+  color:#061018 !important;
+}
+
+#smCopyToPage{
+  background: linear-gradient(90deg, rgba(255,210,74,0.95), rgba(255,159,26,0.9)) !important;
+  border: 1px solid rgba(255,210,74,0.55) !important;
+  color:#16120a !important;
 }
 
 .sm-wrap{
@@ -464,8 +496,19 @@
 
 /* v2.4.6 tweaks */
 #smZoom{max-width:360px;width:360px;}
-#smToast{position:fixed;right:18px;bottom:18px;padding:10px 14px;border-radius:10px;background:rgba(0,0,0,.8);color:#fff;display:none;z-index:9999;}
-#smToast.err{background:rgba(180,0,0,.85);}
+/* Toast / notices (shown above the add buttons) */
+.sm-toastArea{margin-bottom:0;}
+#smToast{
+  position:relative;
+  padding:10px 12px;
+  border-radius:12px;
+  background:rgba(20,20,28,.72);
+  border:1px solid rgba(255,255,255,0.12);
+  color:rgba(255,255,255,0.92);
+  box-shadow:0 8px 26px rgba(0,0,0,.45);
+  display:none;
+}
+#smToast.err{background:rgba(180,0,0,.55); border-color:rgba(255,80,80,0.35);}
 .smIconTile{width:40px;height:40px;border-radius:10px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);margin:6px;}
 .smIconTile i{font-size:18px;}
 .smIconTile.active{outline:2px solid rgba(34,211,238,.8);}
@@ -618,6 +661,16 @@
   padding:8px 10px;
   font-size:12px;
   min-height:38px;
+}
+
+/* Debug checkbox: smaller, tucked at bottom of settings header */
+.sm-propsRowDebug{padding:2px; justify-content:flex-end;}
+.sm-check.sm-checkSmall{opacity:0.75;}
+.sm-check.sm-checkSmall .sm-checkText{font-size:12px;}
+.sm-check.sm-checkSmall input[type="checkbox"]{
+  width:16px;
+  height:16px;
+  accent-color: var(--sm-accent);
 }
 
 /* Command picker full-width */

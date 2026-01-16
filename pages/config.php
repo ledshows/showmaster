@@ -15,17 +15,12 @@
       <button class="buttons btn-outline-light" id="smLoad">Load JSON</button>
       <button class="buttons btn-outline-light" id="smDownload" type="button">Download JSON</button>
       <div class="sm-upload">
-        <input class="sm-ip" id="smDeviceIp" placeholder="Showmaster IP (e.g. 192.168.1.50)" />
+        <input class="sm-ip" id="smDeviceIp" placeholder="Showmaster IP (e.g. 192.168.1.50)" list="smScannedIps" />
+        <datalist id="smScannedIps"></datalist>
         <button class="buttons btn-outline-light" id="smScan" type="button" title="Scan network for Showmaster">Scan</button>
         <button class="buttons btn-primary" id="smUpload" type="button">Push to Showmaster</button>
       </div>
 
-      <div class="sm-debugBar">
-        <label class="sm-check" title="Show debug log under the page">
-          <span class="sm-checkText">Debug</span>
-          <input id="smDebugToggle" type="checkbox" />
-        </label>
-      </div>
 
       <!-- hidden file input used by the Load button -->
       <input id="smLoadFile" type="file" accept="application/json,.json" style="display:none;" />
@@ -60,6 +55,9 @@
 
     <div class="sm-props">
       <div class="sm-propsHeader">
+        <div class="sm-toastArea">
+          <div id="smToast" class="sm-toast" style="display:none;"></div>
+        </div>
         <div class="sm-propsRow sm-propsRowAdd">
           <button class="buttons btn-outline-light sm-addBtn" id="smAddAction"><span class="smPlus">+</span><span class="smBtnText">Action</span></button>
           <button class="buttons btn-outline-light sm-addBtn" id="smAddStatus"><span class="smPlus">+</span><span class="smBtnText">Status</span></button>
@@ -69,6 +67,13 @@
           <button class="buttons btn-outline-light" id="smCopy" title="Duplicate selected">Copy</button>
           <button class="buttons btn-outline-light" id="smCopyToPage" title="Copy selected to another page">Copy to page</button>
           <button class="buttons btn-outline-light" id="smDelete" title="Delete selected">Delete</button>
+        </div>
+
+        <div class="sm-propsRow sm-propsRowDebug">
+          <label class="sm-check sm-checkSmall" title="Show debug log under the page">
+            <span class="sm-checkText">Debug</span>
+            <input id="smDebugToggle" type="checkbox" />
+          </label>
         </div>
       </div>
 
@@ -186,8 +191,6 @@
       <!-- footer note removed -->
     </div>
   </div>
-
-  <div id="smToast" class="sm-toast" style="display:none;"></div>
 
   <textarea id="smDebugLog" class="sm-debugLog" style="display:none;" spellcheck="false" readonly></textarea>
 </div>
