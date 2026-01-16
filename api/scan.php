@@ -4,7 +4,8 @@
 header('Content-Type: application/json');
 
 function tryHost($host) {
-    $url = "http://{$host}/";
+    // Showmaster identifies itself by replying "pong" to /showmaster/ping (and /ping for legacy builds)
+    $url = "http://{$host}/showmaster/ping";
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
@@ -15,13 +16,22 @@ function tryHost($host) {
     $code = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
     curl_close($ch);
     if ($code >= 200 && $code < 400) {
-        $b = strtolower($body ?: "");
-        // Heuristic: match known strings (safe even if missing)
-        if (strpos($b, 'showmaster') !== false || strpos($b, 'ledshows') !== false) {
-            return true;
-        }
-        // If device doesn't expose identifiable HTML, still accept as candidate
-        return true;
+        $b = strtolower(trim($body ?: ""));
+        if ($b === 'pong' || strpos($b, 'pong') !== false) return true;
+    }
+    // Fallback to legacy /ping
+    $url2 = "http://{$host}/ping";
+    $ch2 = curl_init($url2);
+    curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch2, CURLOPT_FOLLOWLOCATION, true);
+    curl_setopt($ch2, CURLOPT_CONNECTTIMEOUT_MS, 1200);
+    curl_setopt($ch2, CURLOPT_TIMEOUT_MS, 1800);
+    $body2 = curl_exec($ch2);
+    $code2 = curl_getinfo($ch2, CURLINFO_RESPONSE_CODE);
+    curl_close($ch2);
+    if ($code2 >= 200 && $code2 < 400) {
+        $b2 = strtolower(trim($body2 ?: ""));
+        if ($b2 === 'pong' || strpos($b2, 'pong') !== false) return true;
     }
     return false;
 }

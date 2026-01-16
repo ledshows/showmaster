@@ -883,6 +883,16 @@ function makeInteractive($el, w) {
     ensurePages();
     // Keep device.bg as a default/fallback, but backgrounds are per-page.
     var out = { device: { w: DEVICE_W, h: DEVICE_H, bg: state.device.bg }, pages: [], activePageId: state.activePageId };
+
+    // Let Showmaster know where FPP is, so button presses can call the FPP API.
+    // Builder runs inside FPP's web UI, so the current hostname/port is the right target.
+    try {
+      var h = (window.location && window.location.hostname) ? window.location.hostname : "";
+      var p = (window.location && window.location.port) ? parseInt(window.location.port, 10) : 0;
+      out.settings = { fppHost: h, fppPort: (p && p > 0) ? p : 80 };
+    } catch(e) {
+      out.settings = { fppHost: "", fppPort: 80 };
+    }
     for (var p=0;p<state.pages.length;p++) {
       var pg = state.pages[p];
       var pgOut = { id: pg.id, name: pg.name, h: pg.h || DEVICE_H, bg: pg.bg || state.device.bg || '#070a12', widgets: [] };
@@ -968,18 +978,36 @@ function makeInteractive($el, w) {
     var ip = ($("#smDeviceIp").val() || "").trim();
     if (!ip) { toast("Enter Showmaster IP first.", true); return; }
     // naive validation: must contain digit/dot/colon
-    if (!/^[0-9a-fA-F\.\:\-]+$/.test(ip)) { toast("Invalid IP/host.", true); return; }
+    if (!/^[a-zA-Z0-9.\-:]+$/.test(ip)) { toast("Invalid host.", true); return; }
 
     var cfg = exportConfig();
     $("#smUpload").prop("disabled", true);
     $.ajax({
-      url: "api/push.php",
+      // IMPORTANT: plugin runs under plugin.php, so we must route API calls through plugin.php
+      // otherwise relative URLs like "api/push.php" resolve to /api/push.php and will 404.
+      url: "plugin.php?plugin=showmaster&file=api/push.php&nopage=1",
       method: "POST",
       dataType: "json",
       data: { host: ip, json: JSON.stringify(cfg) }
     }).done(function(resp){
-      if (resp && resp.ok) toast("Pushed to Showmaster.", false);
-      else toast((resp && resp.error) ? resp.error : "Push failed.", true);
+      if (resp && resp.ok) {
+        var warn = false;
+        var parts = ["Pushed."];
+        if (typeof resp.reloadOk !== "undefined") {
+          parts.push(resp.reloadOk ? "Reload OK" : "Reload skipped");
+        }
+        if (typeof resp.pingOk !== "undefined") {
+          parts.push(resp.pingOk ? "Ping OK" : "Ping FAIL");
+          if (!resp.pingOk) warn = true;
+        }
+        if (typeof resp.configOk !== "undefined") {
+          parts.push(resp.configOk ? "Config OK" : "Config FAIL");
+          if (!resp.configOk) warn = true;
+        }
+        toast(parts.join(" | "), warn);
+      } else {
+        toast((resp && resp.error) ? resp.error : "Push failed.", true);
+      }
     }).fail(function(xhr){
       toast("Push failed (" + xhr.status + ").", true);
     }).always(function(){ $("#smUpload").prop("disabled", false); });
