@@ -8,20 +8,21 @@
   --sm-muted:rgba(255,255,255,0.65);
   --sm-accent:#00e5ff;
   --sm-accent2:#a855f7;
-  --sm-grad-push: linear-gradient(90deg, rgba(0,229,255,0.95), rgba(168,85,247,0.92));
+  /* Galaxy purple (single color, no gradient) */
+  --sm-galaxy:#6d2cff;
   --sm-good:#22c55e;
   --sm-bad:#ef4444;
 }
 
 /* --- Button tweaks requested --- */
 #smUpload{
-  background: var(--sm-grad-push) !important;
-  border: 1px solid rgba(0,229,255,0.55) !important;
+  background: var(--sm-galaxy) !important;
+  border: 1px solid rgba(255,255,255,0.14) !important;
   color:#fff !important;
 }
 
 #smAddAction,#smAddStatus,#smAddTab{
-  background: var(--sm-grad-push) !important;
+  background: var(--sm-galaxy) !important;
   border: 1px solid rgba(255,255,255,0.14) !important;
   color:#fff !important;
 }
@@ -33,15 +34,15 @@
 }
 
 #smCopy{
-  background: linear-gradient(90deg, rgba(47,224,167,0.95), rgba(26,163,122,0.9)) !important;
-  border: 1px solid rgba(47,224,167,0.55) !important;
-  color:#061018 !important;
+  background: rgba(109,44,255,0.22) !important;
+  border: 1px solid rgba(109,44,255,0.55) !important;
+  color: rgba(255,255,255,0.92) !important;
 }
 
 #smCopyToPage{
-  background: linear-gradient(90deg, rgba(255,210,74,0.95), rgba(255,159,26,0.9)) !important;
-  border: 1px solid rgba(255,210,74,0.55) !important;
-  color:#16120a !important;
+  background: rgba(109,44,255,0.30) !important;
+  border: 1px solid rgba(109,44,255,0.55) !important;
+  color: rgba(255,255,255,0.92) !important;
 }
 
 .sm-wrap{
@@ -95,7 +96,16 @@
 .sm-subtitle{font-size:12px; color:var(--sm-muted);}
 
 .sm-actions{display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;}
-.sm-upload{display:flex; align-items:center; gap:8px;}
+.sm-upload{display:flex; align-items:center; gap:8px; position:relative;}
+
+/* Toast anchored above the Push button (right aligned; grows to the left when message is longer) */
+.sm-toastAreaTop{
+  position:absolute;
+  right:0;
+  bottom:calc(100% + 10px);
+  z-index:50;
+  width:auto;
+}
 
 .sm-pageHeightInline{
   width:90px;
@@ -241,6 +251,15 @@
   border:1px solid var(--sm-border);
   border-radius:16px;
   padding:12px;
+  position:relative;
+  padding-bottom:54px; /* room for debug toggle bottom-right */
+}
+
+/* Debug toggle bottom-right in the properties panel */
+.sm-propsDebugBottom{
+  position:absolute;
+  right:12px;
+  bottom:12px;
 }
 
 .sm-propsHeader{display:flex; align-items:center; justify-content:space-between; gap:8px;}
@@ -496,17 +515,22 @@
 
 /* v2.4.6 tweaks */
 #smZoom{max-width:360px;width:360px;}
-/* Toast / notices (shown above the add buttons) */
-.sm-toastArea{margin-bottom:0;}
+/* Toast / notices (anchored above the Push button) */
 #smToast{
   position:relative;
-  padding:10px 12px;
+  right:auto;
+  bottom:auto;
+  max-width:520px;
+  padding:10px 14px;
   border-radius:12px;
   background:rgba(20,20,28,.72);
   border:1px solid rgba(255,255,255,0.12);
   color:rgba(255,255,255,0.92);
   box-shadow:0 8px 26px rgba(0,0,0,.45);
   display:none;
+  line-height:1.2;
+  white-space:nowrap;
+  text-align:center;
 }
 #smToast.err{background:rgba(180,0,0,.55); border-color:rgba(255,80,80,0.35);}
 .smIconTile{width:40px;height:40px;border-radius:10px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);margin:6px;}
@@ -691,7 +715,9 @@
 .sm-propsHeader .sm-propsRowAdd .sm-addBtn{
   width:100%;
   padding:0;
-  aspect-ratio:1 / 1;   /* square */
+  /* Slightly shorter than a full square (requested) */
+  height:84px;
+  aspect-ratio:auto;
   display:flex;
   flex-direction:column;
   align-items:center;
@@ -713,6 +739,6 @@
 }
 
 /* Make the + icon big and centered */
-.smPlus{font-size:34px; line-height:1; margin:0 0 4px 0;}
-.smBtnText{font-size:14px; line-height:1;}
+.smPlus{font-size:28px; line-height:1; margin:0 0 4px 0;}
+.smBtnText{font-size:13px; line-height:1;}
 

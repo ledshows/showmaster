@@ -19,6 +19,10 @@
         <datalist id="smScannedIps"></datalist>
         <button class="buttons btn-outline-light" id="smScan" type="button" title="Scan network for Showmaster">Scan</button>
         <button class="buttons btn-primary" id="smUpload" type="button">Push to Showmaster</button>
+        <!-- Notice/toast anchored above the Push button (grows left when text is longer) -->
+        <div class="sm-toastAreaTop">
+          <div id="smToast" class="sm-toast" style="display:none;"></div>
+        </div>
       </div>
 
 
@@ -55,9 +59,6 @@
 
     <div class="sm-props">
       <div class="sm-propsHeader">
-        <div class="sm-toastArea">
-          <div id="smToast" class="sm-toast" style="display:none;"></div>
-        </div>
         <div class="sm-propsRow sm-propsRowAdd">
           <button class="buttons btn-outline-light sm-addBtn" id="smAddAction"><span class="smPlus">+</span><span class="smBtnText">Action</span></button>
           <button class="buttons btn-outline-light sm-addBtn" id="smAddStatus"><span class="smPlus">+</span><span class="smBtnText">Status</span></button>
@@ -67,13 +68,6 @@
           <button class="buttons btn-outline-light" id="smCopy" title="Duplicate selected">Copy</button>
           <button class="buttons btn-outline-light" id="smCopyToPage" title="Copy selected to another page">Copy to page</button>
           <button class="buttons btn-outline-light" id="smDelete" title="Delete selected">Delete</button>
-        </div>
-
-        <div class="sm-propsRow sm-propsRowDebug">
-          <label class="sm-check sm-checkSmall" title="Show debug log under the page">
-            <span class="sm-checkText">Debug</span>
-            <input id="smDebugToggle" type="checkbox" />
-          </label>
         </div>
       </div>
 
@@ -189,6 +183,14 @@
       </div>
 
       <!-- footer note removed -->
+
+      <!-- Debug toggle moved to bottom-right of the properties panel -->
+      <div class="sm-propsDebugBottom">
+        <label class="sm-check sm-checkSmall" title="Show debug log under the page">
+          <span class="sm-checkText">Debug</span>
+          <input id="smDebugToggle" type="checkbox" />
+        </label>
+      </div>
     </div>
   </div>
 
