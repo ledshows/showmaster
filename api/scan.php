@@ -1,4 +1,10 @@
 <?php
+// Showmaster discovery for FPP plugin.
+// Goal: return a list of devices without requiring PHP curl extensions.
+// Strategy:
+//  1) Prefer fast host candidates from ARP/neigh tables.
+//  2) Optionally expand to a couple of common show subnets if we can detect them.
+
 error_reporting(0);
 ini_set('display_errors', '0');
 header('Content-Type: application/json');
@@ -20,78 +26,101 @@ function uniq_hosts($hosts) {
   return $out;
 }
 
+function http_ping_showmaster($ip, $timeoutSec) {
+  $errno = 0; $errstr = '';
+  $fp = @fsockopen($ip, 80, $errno, $errstr, $timeoutSec);
+  if (!$fp) return false;
+  stream_set_timeout($fp, (int)$timeoutSec, (int)(($timeoutSec - (int)$timeoutSec) * 1000000));
+  $req = "GET /showmaster/ping HTTP/1.0\r\nHost: $ip\r\nConnection: close\r\n\r\n";
+  @fwrite($fp, $req);
+  $data = '';
+  // Read a small chunk; we only need to see "pong".
+  while (!feof($fp) && strlen($data) < 128) {
+    $chunk = @fread($fp, 128);
+    if ($chunk === false || $chunk === '') break;
+    $data .= $chunk;
+  }
+  @fclose($fp);
+  return (strpos($data, "pong") !== false);
+}
+
+function read_arp_candidates() {
+  $ips = array();
+  // /proc/net/arp exists on Linux.
+  $arp = @file_get_contents('/proc/net/arp');
+  if ($arp) {
+    $lines = preg_split('/\r?\n/', trim($arp));
+    // Skip header
+    for ($i=1; $i<count($lines); $i++) {
+      $parts = preg_split('/\s+/', trim($lines[$i]));
+      if (count($parts) >= 4) {
+        $ip = $parts[0];
+        $flags = $parts[2];
+        $mac = $parts[3];
+        if ($ip && $mac && $mac !== '00:00:00:00:00:00' && $flags !== '0x0') {
+          $ips[] = $ip;
+        }
+      }
+    }
+  }
+
+  // ip neigh is sometimes more complete
+  $neigh = @shell_exec('ip -4 neigh 2>/dev/null');
+  if ($neigh) {
+    $lines = preg_split('/\r?\n/', trim($neigh));
+    foreach ($lines as $ln) {
+      if (!$ln) continue;
+      // Format: 192.168.2.119 dev eth0 lladdr .. REACHABLE
+      $p = preg_split('/\s+/', trim($ln));
+      if (count($p) >= 1 && filter_var($p[0], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+        $ips[] = $p[0];
+      }
+    }
+  }
+
+  return array_values(array_unique($ips));
+}
+
 function add_subnet(&$subnets, $ip) {
   if (!is_string($ip) || $ip === '') return;
   if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) return;
   $p = explode('.', $ip);
   if (count($p) !== 4) return;
-  // Only scan private ranges
-  $a = intval($p[0]);
-  $b = intval($p[1]);
-  $isPrivate = ($a === 10) || ($a === 192 && $b === 168) || ($a === 172 && $b >= 16 && $b <= 31);
-  if (!$isPrivate) return;
   $subnets[] = $p[0] . '.' . $p[1] . '.' . $p[2];
 }
 
-$subnets = array();
-add_subnet($subnets, isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '');
-add_subnet($subnets, isset($_SERVER['SERVER_ADDR']) ? $_SERVER['SERVER_ADDR'] : '');
+// Build candidate IP list.
+$candidates = read_arp_candidates();
 
-// Common fallbacks (your show networks)
+// If ARP table is empty, try a small quick sweep in likely subnets.
+$subnets = array();
+add_subnet($subnets, isset($_SERVER['SERVER_ADDR']) ? $_SERVER['SERVER_ADDR'] : '');
+add_subnet($subnets, isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '');
 $subnets[] = '192.168.2';
 $subnets[] = '192.168.8';
-
 $subnets = array_values(array_unique($subnets));
 
-$found = array();
-
-if (!function_exists('curl_multi_init')) {
-  json_out(array('ok' => false, 'error' => 'curl_multi not available', 'hosts' => array()));
+if (count($candidates) == 0) {
+  // Quick probe a limited range to avoid long waits.
+  foreach ($subnets as $sn) {
+    for ($i=1; $i<=254; $i+=8) {
+      $candidates[] = $sn . '.' . $i;
+    }
+  }
 }
 
-$connectTimeoutMs = 120;
-$timeoutMs = 250;
-$batch = 48;
-
-foreach ($subnets as $sn) {
-  for ($start = 1; $start <= 254; $start += $batch) {
-    $mh = curl_multi_init();
-    $chs = array();
-
-    $end = min(254, $start + $batch - 1);
-    for ($i = $start; $i <= $end; $i++) {
-      $ip = $sn . '.' . $i;
-      $ch = curl_init('http://' . $ip . '/showmaster/ping');
-      curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-      curl_setopt($ch, CURLOPT_CONNECTTIMEOUT_MS, $connectTimeoutMs);
-      curl_setopt($ch, CURLOPT_TIMEOUT_MS, $timeoutMs);
-      curl_setopt($ch, CURLOPT_NOSIGNAL, 1);
-      curl_multi_add_handle($mh, $ch);
-      $chs[$ip] = $ch;
-    }
-
-    $running = null;
-    do {
-      $mrc = curl_multi_exec($mh, $running);
-      if ($running) curl_multi_select($mh, 0.05);
-    } while ($running && $mrc == CURLM_OK);
-
-    foreach ($chs as $ip => $ch) {
-      $body = curl_multi_getcontent($ch);
-      $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-      if ($http >= 200 && $http < 300 && trim($body) === 'pong') {
-        $found[] = array('host' => $ip, 'id' => '', 'fw' => '');
-      }
-      curl_multi_remove_handle($mh, $ch);
-      curl_close($ch);
-    }
-
-    curl_multi_close($mh);
+$found = array();
+$timeout = 0.12; // seconds
+$limit = 256;
+for ($i=0; $i<count($candidates) && $i<$limit; $i++) {
+  $ip = $candidates[$i];
+  if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) continue;
+  if (http_ping_showmaster($ip, $timeout)) {
+    $found[] = array('host' => $ip, 'id' => '', 'fw' => '');
   }
 }
 
 $found = uniq_hosts($found);
-
 if (count($found) > 0) {
   json_out(array('ok' => true, 'host' => $found[0]['host'], 'hosts' => $found));
 }

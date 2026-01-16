@@ -978,28 +978,43 @@ function makeInteractive($el, w) {
     cfg.settings.fppPort = (window.location.port && parseInt(window.location.port, 10)) ? parseInt(window.location.port, 10) : 80;
     $("#smUpload").prop("disabled", true);
 
-    // Call plugin API via plugin.php (works in FPP regardless of current page URL)
-    var apiUrl = "plugin.php?plugin=showmaster&file=api/push.php&nopage=1";
-
-    $.ajax({
-      url: apiUrl,
-      method: "POST",
-      dataType: "json",
-      contentType: "application/json",
-      data: JSON.stringify({ host: host, config: cfg })
-    }).done(function(resp){
-      if (resp && resp.ok) {
-        // show a compact summary
-        var msg = resp.message || "Pushed.";
-        if (resp.pingOk === false) msg += " | Ping FAIL";
-        if (resp.configOk === false) msg += " | Config FAIL";
-        toast(msg, (resp.pingOk===false || resp.configOk===false));
-      } else {
-        toast((resp && resp.error) ? resp.error : "Push failed.", true);
+    // Push directly from browser to the Showmaster (fast + no PHP/curl dependency).
+    // Requires Showmaster firmware to allow CORS on /showmaster/*.
+    (function(){
+      function withTimeout(promise, ms){
+        return new Promise(function(resolve, reject){
+          var t = setTimeout(function(){ reject(new Error('timeout')); }, ms);
+          promise.then(function(v){ clearTimeout(t); resolve(v); }, function(e){ clearTimeout(t); reject(e); });
+        });
       }
-    }).fail(function(xhr){
-      toast("Push failed (" + xhr.status + ").", true);
-    }).always(function(){ $("#smUpload").prop("disabled", false); });
+
+      var base = "http://" + host;
+      var jsonText = JSON.stringify(cfg);
+      var fd = new FormData();
+      fd.append('file', new Blob([jsonText], {type:'application/json'}), 'showmaster.json');
+
+      var okReload = false, okPing = false, okCfg = false;
+
+      withTimeout(fetch(base + "/showmaster/config", { method: "POST", body: fd }), 30000)
+        .then(function(r){ return r.text().then(function(t){ return {r:r, t:t}; }); })
+        .then(function(x){
+          if (!x.r.ok) throw new Error('config_http_' + x.r.status);
+          // reload
+          return withTimeout(fetch(base + "/showmaster/reload", { method: "POST" }), 10000);
+        })
+        .then(function(r){ okReload = r.ok; return withTimeout(fetch(base + "/showmaster/ping"), 5000); })
+        .then(function(r){ return r.text().then(function(t){ okPing = r.ok && (t.trim() === 'pong'); }); })
+        .then(function(){ return withTimeout(fetch(base + "/showmaster/config"), 10000); })
+        .then(function(r){ return r.text().then(function(t){ okCfg = r.ok && (t.indexOf('"pages"') !== -1); }); })
+        .then(function(){
+          var msg = 'Pushed. Reload ' + (okReload?'OK':'FAIL') + ' | Ping ' + (okPing?'OK':'FAIL') + ' | Config ' + (okCfg?'OK':'FAIL');
+          toast(msg, !(okReload && okPing && okCfg));
+        })
+        .catch(function(e){
+          toast('Push failed: ' + (e && e.message ? e.message : 'error'), true);
+        })
+        .finally(function(){ $("#smUpload").prop("disabled", false); });
+    })();
   }
 
   // -------- init --------
