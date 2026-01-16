@@ -997,7 +997,8 @@ function makeInteractive($el, w) {
     // Prefer server-side push (avoids browser CORS/mixed-content issues in the FPP UI).
     dbg('Push start -> ' + host);
     $.ajax({
-      url: 'plugin.php?plugin=showmaster&file=api/push.php&nopage=1',
+      // IMPORTANT: do NOT use &file= for PHP endpoints (served as plain text).
+      url: 'plugin.php?plugin=showmaster&page=pages/api.php&cmd=push&nopage=1',
       method: 'POST',
       contentType: 'application/json',
       dataType: 'json',
@@ -1111,7 +1112,10 @@ function makeInteractive($el, w) {
       var $btn = $(this);
       $btn.prop('disabled', true).text('Scanning...');
       dbg('Scan start');
-      $.getJSON('plugin.php?plugin=showmaster&file=api/scan.php&nopage=1')
+      // IMPORTANT: do NOT use &file= for PHP endpoints.
+      // FPP serves plugin files via the file= handler as plain text (PHP won't execute).
+      // Use a real plugin page endpoint instead.
+      $.getJSON('plugin.php?plugin=showmaster&page=pages/api.php&cmd=scan&nopage=1')
         .done(function(res){
           dbg('Scan response: ' + JSON.stringify(res));
           if (res && res.ok && res.hosts && res.hosts.length) {
