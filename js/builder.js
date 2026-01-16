@@ -883,16 +883,6 @@ function makeInteractive($el, w) {
     ensurePages();
     // Keep device.bg as a default/fallback, but backgrounds are per-page.
     var out = { device: { w: DEVICE_W, h: DEVICE_H, bg: state.device.bg }, pages: [], activePageId: state.activePageId };
-
-    // Let Showmaster know where FPP is, so button presses can call the FPP API.
-    // Builder runs inside FPP's web UI, so the current hostname/port is the right target.
-    try {
-      var h = (window.location && window.location.hostname) ? window.location.hostname : "";
-      var p = (window.location && window.location.port) ? parseInt(window.location.port, 10) : 0;
-      out.settings = { fppHost: h, fppPort: (p && p > 0) ? p : 80 };
-    } catch(e) {
-      out.settings = { fppHost: "", fppPort: 80 };
-    }
     for (var p=0;p<state.pages.length;p++) {
       var pg = state.pages[p];
       var pgOut = { id: pg.id, name: pg.name, h: pg.h || DEVICE_H, bg: pg.bg || state.device.bg || '#070a12', widgets: [] };
@@ -975,36 +965,35 @@ function makeInteractive($el, w) {
   }
 
   function pushToShowmaster() {
-    var ip = ($("#smDeviceIp").val() || "").trim();
-    if (!ip) { toast("Enter Showmaster IP first.", true); return; }
-    // naive validation: must contain digit/dot/colon
-    if (!/^[a-zA-Z0-9.\-:]+$/.test(ip)) { toast("Invalid host.", true); return; }
+    var host = ($("#smDeviceIp").val() || "").trim();
+    if (!host) { toast("Enter Showmaster IP/host first.", true); return; }
+    // allow IP or hostname (showmaster.local / Showmaster-xxxx)
+    if (!/^[a-zA-Z0-9.\-:]+$/.test(host)) { toast("Invalid IP/host.", true); return; }
 
     var cfg = exportConfig();
+    // Ensure FPP target is embedded in the JSON so the Showmaster can send commands.
+    // (Builder runs on FPP, so window.location.hostname is the correct target.)
+    cfg.settings = cfg.settings || {};
+    cfg.settings.fppHost = window.location.hostname;
+    cfg.settings.fppPort = (window.location.port && parseInt(window.location.port, 10)) ? parseInt(window.location.port, 10) : 80;
     $("#smUpload").prop("disabled", true);
+
+    // Call plugin API via plugin.php (works in FPP regardless of current page URL)
+    var apiUrl = "plugin.php?plugin=showmaster&file=api/push.php&nopage=1";
+
     $.ajax({
-      // IMPORTANT: plugin runs under plugin.php, so we must route API calls through plugin.php
-      // otherwise relative URLs like "api/push.php" resolve to /api/push.php and will 404.
-      url: "plugin.php?plugin=showmaster&file=api/push.php&nopage=1",
+      url: apiUrl,
       method: "POST",
       dataType: "json",
-      data: { host: ip, json: JSON.stringify(cfg) }
+      contentType: "application/json",
+      data: JSON.stringify({ host: host, config: cfg })
     }).done(function(resp){
       if (resp && resp.ok) {
-        var warn = false;
-        var parts = ["Pushed."];
-        if (typeof resp.reloadOk !== "undefined") {
-          parts.push(resp.reloadOk ? "Reload OK" : "Reload skipped");
-        }
-        if (typeof resp.pingOk !== "undefined") {
-          parts.push(resp.pingOk ? "Ping OK" : "Ping FAIL");
-          if (!resp.pingOk) warn = true;
-        }
-        if (typeof resp.configOk !== "undefined") {
-          parts.push(resp.configOk ? "Config OK" : "Config FAIL");
-          if (!resp.configOk) warn = true;
-        }
-        toast(parts.join(" | "), warn);
+        // show a compact summary
+        var msg = resp.message || "Pushed.";
+        if (resp.pingOk === false) msg += " | Ping FAIL";
+        if (resp.configOk === false) msg += " | Config FAIL";
+        toast(msg, (resp.pingOk===false || resp.configOk===false));
       } else {
         toast((resp && resp.error) ? resp.error : "Push failed.", true);
       }
@@ -1094,9 +1083,29 @@ function makeInteractive($el, w) {
       $btn.prop('disabled', true).text('Scanning...');
       $.getJSON('plugin.php?plugin=showmaster&file=api/scan.php&nopage=1')
         .done(function(res){
-          if (res && res.ok && res.host) {
-            $('#smDeviceIp').val(res.host);
-            toast('Found: ' + res.host);
+          if (res && res.ok && res.hosts && res.hosts.length) {
+            var hosts = res.hosts;
+            // Create a dropdown for multiple devices.
+            var $sel = $('#smScanList');
+            if (!$sel.length) {
+              $sel = $('<select id="smScanList" class="sm-ip" style="margin-top:6px"></select>');
+              $('#smDeviceIp').after($sel);
+              $sel.on('change', function(){
+                var v = ($(this).val() || '').trim();
+                if (v) $('#smDeviceIp').val(v);
+              });
+            }
+            $sel.empty();
+            hosts.forEach(function(h){
+              var label = h.host;
+              if (h.fw) label += '  (fw ' + h.fw + ')';
+              if (h.id) label += '  ' + h.id;
+              $sel.append($('<option>').val(h.host).text(label));
+            });
+            // pick first
+            $('#smDeviceIp').val(hosts[0].host);
+            $sel.val(hosts[0].host).show();
+            toast(hosts.length === 1 ? ('Found: ' + hosts[0].host) : ('Found ' + hosts.length + ' Showmasters. Select from list.'));
           } else {
             toast('Not found. Try opening Showmaster once, then scan again.', true);
           }
