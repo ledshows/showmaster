@@ -20,6 +20,13 @@
         <button class="buttons btn-primary" id="smUpload" type="button">Push to Showmaster</button>
       </div>
 
+      <div class="sm-debugBar">
+        <label class="sm-check" title="Show debug log under the page">
+          <span class="sm-checkText">Debug</span>
+          <input id="smDebugToggle" type="checkbox" />
+        </label>
+      </div>
+
       <!-- hidden file input used by the Load button -->
       <input id="smLoadFile" type="file" accept="application/json,.json" style="display:none;" />
     </div>
@@ -181,6 +188,8 @@
   </div>
 
   <div id="smToast" class="sm-toast" style="display:none;"></div>
+
+  <textarea id="smDebugLog" class="sm-debugLog" style="display:none;" spellcheck="false" readonly></textarea>
 </div>
 
 <!-- Hidden FPP Command Editor Host (BigButtons-style) -->

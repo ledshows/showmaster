@@ -14,6 +14,12 @@ function respond($ok, $msg, $extra = array()) {
     exit;
 }
 
+function tail_text($txt, $maxChars) {
+    $txt = (string)$txt;
+    if (strlen($txt) <= $maxChars) return $txt;
+    return substr($txt, -$maxChars);
+}
+
 function curl_request($url, $method = 'GET', $postfields = null, $headers = array(), $timeout = 30) {
     $ch = curl_init($url);
     if ($ch === false) {
@@ -92,6 +98,7 @@ $cfgUrl = 'http://' . $host . '/showmaster/config';
 $reloadUrl = 'http://' . $host . '/showmaster/reload';
 $pingUrl = 'http://' . $host . '/showmaster/ping';
 $pingUrlLegacy = 'http://' . $host . '/ping';
+$logUrl = 'http://' . $host . '/showmaster/log';
 
 $file = new CURLFile($tmp, 'application/json', 'showmaster.json');
 $post = array('file' => $file);
@@ -134,9 +141,18 @@ if ($cfg['ok'] && $cfg['http'] >= 200 && $cfg['http'] < 300) {
 }
 
 $msg = 'Pushed. Reload ' . ($reloadOk ? 'OK' : 'FAIL') . ' | Ping ' . ($pingOk ? 'OK' : 'FAIL') . ' | Config ' . ($configOk ? 'OK' : 'FAIL');
+
+// Optional: fetch recent firmware log for easier debugging
+$deviceLog = '';
+$log = curl_request($logUrl, 'GET', null, array(), 5);
+if ($log['ok'] && $log['http'] >= 200 && $log['http'] < 300) {
+    $deviceLog = tail_text($log['body'], 4000);
+}
+
 respond(true, $msg, array(
     'deviceResponse' => $push['body'],
     'reloadOk' => $reloadOk,
     'pingOk' => $pingOk,
-    'configOk' => $configOk
+    'configOk' => $configOk,
+    'deviceLog' => $deviceLog
 ));

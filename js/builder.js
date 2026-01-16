@@ -39,6 +39,22 @@
     setTimeout(function(){ $t.fadeOut(250); }, 2600);
   }
 
+  // Debug log (visible when Debug is checked)
+  function dbg(msg) {
+    try {
+      var $t = $("#smDebugToggle");
+      if ($t.length && !$t.prop("checked")) return;
+      var $l = $("#smDebugLog");
+      if (!$l.length) return;
+      $l.show();
+      var now = new Date();
+      var line = "[" + now.toISOString() + "] " + String(msg);
+      var cur = $l.val() || "";
+      $l.val(cur + line + "\n");
+      try { $l.scrollTop($l[0].scrollHeight); } catch(e) {}
+    } catch(ex) {}
+  }
+
   
   function currentPage() {
     if (!state.pages || !state.pages.length) return null;
@@ -978,48 +994,46 @@ function makeInteractive($el, w) {
     cfg.settings.fppPort = (window.location.port && parseInt(window.location.port, 10)) ? parseInt(window.location.port, 10) : 80;
     $("#smUpload").prop("disabled", true);
 
-    // Push directly from browser to the Showmaster (fast + no PHP/curl dependency).
-    // Requires Showmaster firmware to allow CORS on /showmaster/*.
-    (function(){
-      function withTimeout(promise, ms){
-        return new Promise(function(resolve, reject){
-          var t = setTimeout(function(){ reject(new Error('timeout')); }, ms);
-          promise.then(function(v){ clearTimeout(t); resolve(v); }, function(e){ clearTimeout(t); reject(e); });
-        });
+    // Prefer server-side push (avoids browser CORS/mixed-content issues in the FPP UI).
+    dbg('Push start -> ' + host);
+    $.ajax({
+      url: 'plugin.php?plugin=showmaster&file=api/push.php&nopage=1',
+      method: 'POST',
+      contentType: 'application/json',
+      dataType: 'json',
+      data: JSON.stringify({ host: host, config: cfg })
+    })
+    .done(function(res){
+      dbg('Push response: ' + JSON.stringify(res));
+      if (res && res.ok) {
+        toast(res.message || 'Pushed.', false);
+      } else {
+        toast('Push failed: ' + (res && res.error ? res.error : 'error'), true);
       }
-
-      var base = "http://" + host;
-      var jsonText = JSON.stringify(cfg);
-      var fd = new FormData();
-      fd.append('file', new Blob([jsonText], {type:'application/json'}), 'showmaster.json');
-
-      var okReload = false, okPing = false, okCfg = false;
-
-      withTimeout(fetch(base + "/showmaster/config", { method: "POST", body: fd }), 30000)
-        .then(function(r){ return r.text().then(function(t){ return {r:r, t:t}; }); })
-        .then(function(x){
-          if (!x.r.ok) throw new Error('config_http_' + x.r.status);
-          // reload
-          return withTimeout(fetch(base + "/showmaster/reload", { method: "POST" }), 10000);
-        })
-        .then(function(r){ okReload = r.ok; return withTimeout(fetch(base + "/showmaster/ping"), 5000); })
-        .then(function(r){ return r.text().then(function(t){ okPing = r.ok && (t.trim() === 'pong'); }); })
-        .then(function(){ return withTimeout(fetch(base + "/showmaster/config"), 10000); })
-        .then(function(r){ return r.text().then(function(t){ okCfg = r.ok && (t.indexOf('"pages"') !== -1); }); })
-        .then(function(){
-          var msg = 'Pushed. Reload ' + (okReload?'OK':'FAIL') + ' | Ping ' + (okPing?'OK':'FAIL') + ' | Config ' + (okCfg?'OK':'FAIL');
-          toast(msg, !(okReload && okPing && okCfg));
-        })
-        .catch(function(e){
-          toast('Push failed: ' + (e && e.message ? e.message : 'error'), true);
-        })
-        .finally(function(){ $("#smUpload").prop("disabled", false); });
-    })();
+    })
+    .fail(function(xhr){
+      var txt = '';
+      try { txt = (xhr && xhr.responseText) ? String(xhr.responseText) : ''; } catch(e) {}
+      dbg('Push xhr fail: ' + (xhr ? xhr.status : '0') + ' ' + txt);
+      toast('Push failed: Failed to reach push.php', true);
+    })
+    .always(function(){ $("#smUpload").prop("disabled", false); });
   }
 
   // -------- init --------
   function wireUi() {
     fillSources();
+
+    // Debug log toggle
+    $("#smDebugToggle").off("change").on("change", function(){
+      var on = !!$(this).prop("checked");
+      if (on) {
+        $("#smDebugLog").show();
+        dbg('Debug enabled');
+      } else {
+        $("#smDebugLog").hide();
+      }
+    });
 
     // Bootstrap 4/5 modal close failsafe (FPP can ship with either)
     $(document).off("click.smModalClose").on("click.smModalClose", "#smIconModal .close, #smCmdModal .close, #smIconModal [data-bs-dismiss='modal'], #smCmdModal [data-bs-dismiss='modal']", function(e){
@@ -1096,8 +1110,10 @@ function makeInteractive($el, w) {
       e.preventDefault();
       var $btn = $(this);
       $btn.prop('disabled', true).text('Scanning...');
+      dbg('Scan start');
       $.getJSON('plugin.php?plugin=showmaster&file=api/scan.php&nopage=1')
         .done(function(res){
+          dbg('Scan response: ' + JSON.stringify(res));
           if (res && res.ok && res.hosts && res.hosts.length) {
             var hosts = res.hosts;
             // Create a dropdown for multiple devices.
@@ -1125,7 +1141,12 @@ function makeInteractive($el, w) {
             toast('Not found. Try opening Showmaster once, then scan again.', true);
           }
         })
-        .fail(function(){ toast('Scan failed.', true); })
+        .fail(function(xhr){
+          var txt = '';
+          try { txt = (xhr && xhr.responseText) ? String(xhr.responseText) : ''; } catch(ex) {}
+          dbg('Scan xhr fail: ' + (xhr ? xhr.status : '0') + ' ' + txt);
+          toast('Scan failed.', true);
+        })
         .always(function(){ $btn.prop('disabled', false).text('Scan'); });
     });
 

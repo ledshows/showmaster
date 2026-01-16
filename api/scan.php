@@ -9,7 +9,15 @@ error_reporting(0);
 ini_set('display_errors', '0');
 header('Content-Type: application/json');
 
+$debug = array();
+function dbg_add($s){
+  global $debug;
+  $debug[] = $s;
+}
+
 function json_out($arr) {
+  global $debug;
+  if (!isset($arr['debug'])) $arr['debug'] = $debug;
   echo json_encode($arr);
   exit;
 }
@@ -91,6 +99,7 @@ function add_subnet(&$subnets, $ip) {
 
 // Build candidate IP list.
 $candidates = read_arp_candidates();
+dbg_add('arp_candidates=' . count($candidates));
 
 // If ARP table is empty, try a small quick sweep in likely subnets.
 $subnets = array();
@@ -108,6 +117,9 @@ if (count($candidates) == 0) {
     }
   }
 }
+
+dbg_add('subnets=' . implode(',', $subnets));
+dbg_add('candidates_total=' . count($candidates));
 
 $found = array();
 $timeout = 0.12; // seconds
