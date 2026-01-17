@@ -86,6 +86,9 @@
       st.sequencePos,
       st.sequence_seconds,
       st.secondsElapsed,
+      st.seconds_elapsed,
+      st.elapsed,
+      st.elapsed_seconds,
       st.elapsedSeconds
     ];
     for (var i=0;i<cands.length;i++) {
@@ -99,7 +102,8 @@
     }
     // Some builds nest it under current_playlist
     try {
-      var v2 = st.current_playlist && (st.current_playlist.sequencePosition || st.current_playlist.sequence_position);
+      var cp = st.current_playlist || {};
+      var v2 = cp.sequencePosition || cp.sequence_position || cp.secondsElapsed || cp.seconds_elapsed || cp.elapsed || cp.elapsed_seconds || cp.elapsedSeconds;
       if (typeof v2 === 'number') return v2;
       if (typeof v2 === 'string') {
         var n2 = parseFloat(v2);
@@ -122,8 +126,14 @@
       return !!name && isFinite(pos);
     }
     function fetchStatus(){
-      jQuery.getJSON('api/fppd/status').done(function(js){ lastStatus = js; d.resolve(); }).fail(function(){
-        jQuery.getJSON('/api/fppd/status').done(function(js2){ lastStatus = js2; d.resolve(); }).fail(function(){ d.resolve(); });
+      // FPP 5+ prefers /api/system/status, older builds expose /api/fppd/status
+      jQuery.getJSON('/api/system/status').done(function(js){ lastStatus = js; d.resolve(); }).fail(function(){
+        jQuery.getJSON('/api/fppd/status').done(function(js2){ lastStatus = js2; d.resolve(); }).fail(function(){
+          // relative fallbacks in case of odd base paths
+          jQuery.getJSON('api/system/status').done(function(js3){ lastStatus = js3; d.resolve(); }).fail(function(){
+            jQuery.getJSON('api/fppd/status').done(function(js4){ lastStatus = js4; d.resolve(); }).fail(function(){ d.resolve(); });
+          });
+        });
       });
     }
     if (haveStatus()) d.resolve(); else fetchStatus();
