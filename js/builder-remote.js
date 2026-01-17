@@ -68,6 +68,78 @@
     return icon + '<span>' + esc(label2) + '</span>';
   }
 
+  // ---- Special actions (not standard FPP command presets) ----
+  function statusSeqName(st){
+    if (!st) return '';
+    var v = st.current_sequence;
+    if (typeof v === 'string') return v;
+    if (v && typeof v.sequence === 'string') return v.sequence;
+    if (v && typeof v.name === 'string') return v.name;
+    return '';
+  }
+
+  function statusSeqPosSeconds(st){
+    if (!st) return NaN;
+    var cands = [
+      st.sequencePosition,
+      st.sequence_position,
+      st.sequencePos,
+      st.sequence_seconds,
+      st.secondsElapsed,
+      st.elapsedSeconds
+    ];
+    for (var i=0;i<cands.length;i++) {
+      var v = cands[i];
+      if (v == null) continue;
+      if (typeof v === 'number') return v;
+      if (typeof v === 'string') {
+        var n = parseFloat(v);
+        if (isFinite(n)) return n;
+      }
+    }
+    // Some builds nest it under current_playlist
+    try {
+      var v2 = st.current_playlist && (st.current_playlist.sequencePosition || st.current_playlist.sequence_position);
+      if (typeof v2 === 'number') return v2;
+      if (typeof v2 === 'string') {
+        var n2 = parseFloat(v2);
+        if (isFinite(n2)) return n2;
+      }
+    } catch(e) {}
+    return NaN;
+  }
+
+  function doSequenceSeekDelta(deltaSeconds){
+    deltaSeconds = parseInt(deltaSeconds, 10);
+    if (!isFinite(deltaSeconds) || deltaSeconds === 0) return;
+
+    // Ensure we have status first
+    var d = jQuery.Deferred();
+    function haveStatus(){
+      if (!lastStatus) return false;
+      var name = statusSeqName(lastStatus);
+      var pos = statusSeqPosSeconds(lastStatus);
+      return !!name && isFinite(pos);
+    }
+    function fetchStatus(){
+      jQuery.getJSON('api/fppd/status').done(function(js){ lastStatus = js; d.resolve(); }).fail(function(){
+        jQuery.getJSON('/api/fppd/status').done(function(js2){ lastStatus = js2; d.resolve(); }).fail(function(){ d.resolve(); });
+      });
+    }
+    if (haveStatus()) d.resolve(); else fetchStatus();
+
+    d.done(function(){
+      var seq = statusSeqName(lastStatus);
+      var cur = statusSeqPosSeconds(lastStatus);
+      if (!seq || !isFinite(cur)) return;
+      var next = Math.max(0, Math.floor(cur + deltaSeconds));
+      // Seek by restarting the current sequence at new second.
+      // Documented: GET /api/sequence/:SequenceName/start/:startSecond
+      var url = 'api/sequence/' + encodeURIComponent(seq) + '/start/' + encodeURIComponent(String(next));
+      jQuery.ajax({ url: url, method: 'GET' });
+    });
+  }
+
   function applyCss($el, w){
     $el.css({
       left: Math.round(w.x) + 'px',
@@ -213,6 +285,14 @@
           $el.on('click', function(e){
             e.preventDefault();
             if (!w.command) { return; }
+
+            // Special: seek current sequence by delta seconds
+            if (w.command === '__SHOWMASTER_SEQ_SEEK__') {
+              var d = 10;
+              try { if (w.args && typeof w.args.delta !== 'undefined') d = w.args.delta; } catch(ex) {}
+              doSequenceSeekDelta(d);
+              return;
+            }
             // Best-effort FPP command execution
             jQuery.ajax({
               url: 'api/command',
