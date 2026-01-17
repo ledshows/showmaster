@@ -8,19 +8,12 @@
   }
 
   function toast(msg, isErr){
-    var $t = window.jQuery ? window.jQuery('#smRToast') : null;
-    if (!$t || !$t.length) { try { alert(msg); } catch(e){} return; }
-    $t.text(msg).toggleClass('err', !!isErr).fadeIn(120);
-    setTimeout(function(){ $t.fadeOut(250); }, 2600);
+    // Remote page: no notices/toasts (user asked).
+    // Keep as no-op to avoid breaking old calls.
+    void(msg); void(isErr);
   }
 
-  function normalizeRotation(deg){
-    deg = parseInt(deg,10); if (isNaN(deg)) deg = 0;
-    deg = ((deg % 360) + 360) % 360;
-    if (deg===360) deg=0;
-    if (deg!==0 && deg!==90 && deg!==180 && deg!==270) deg=0;
-    return deg;
-  }
+  // Remote page should NOT auto-rotate based on saved builder meta.
 
   function prettySource(id){
     // same labels as builder (kept short)
@@ -58,7 +51,10 @@
   }
 
   function widgetHtml(w){
-    if (w.type === 'status') return esc(prettySource(w.source));
+    if (w.type === 'status') {
+      // will be updated by polling
+      return '<span class="sm-statusText">--</span>';
+    }
     if (w.type === 'tab') {
       var label = (w.label == null) ? '' : String(w.label);
       var iconT = w.icon ? ("<i class='fa fa-" + esc(w.icon) + "' style='font-size:" + (w.iconSize||14) + "px'></i>") : '';
@@ -113,7 +109,6 @@
     activePageId: null,
     deviceW: 320,
     deviceH: 240,
-    rotation: 0,
     scale: 1,
     zoomPercent: 200
   };
@@ -125,28 +120,17 @@
 
   function setActivePage(id){
     state.activePageId = id;
-    renderTabs();
     renderCanvas();
-  }
-
-  function renderTabs(){
-    var $t = jQuery('#smRPageTabs');
-    $t.empty();
-    for (var i=0;i<state.pages.length;i++) {
-      (function(pg, idx){
-        var $b = jQuery("<div class='sm-pageTab'></div>");
-        $b.append("<span class='sm-pageName'>" + esc(pg.name || ('Page '+(idx+1))) + "</span>");
-        if (pg.id===state.activePageId) $b.addClass('active');
-        $b.on('click', function(){ setActivePage(pg.id); });
-        $t.append($b);
-      })(state.pages[i], i);
-    }
   }
 
   function computeScaleAndTransform(){
     var $stage = jQuery('#smRStage');
     var sw = $stage.width() || 320;
     var sh = $stage.height() || 240;
+    // On some FPP layouts the stage can report ~0px height until after first paint.
+    if (!isFinite(sh) || sh < 80) {
+      try { sh = Math.max(240, Math.round((window.innerHeight || 600) * 0.6)); } catch(e) { sh = 360; }
+    }
 
     var $scene = jQuery('#smRScene');
 
@@ -157,11 +141,9 @@
 
     var baseW = state.deviceW;
     var baseH = ph;
-    var rot = state.rotation;
-    var effW = (rot===90||rot===270) ? baseH : baseW;
-    var effH = (rot===90||rot===270) ? baseW : baseH;
 
-    var sFit = Math.min(sw/effW, sh/effH);
+    // Fit to stage (no rotation on this page)
+    var sFit = Math.min(sw/baseW, sh/baseH);
     if (!isFinite(sFit) || sFit<=0) sFit = 1;
     var z = (state.zoomPercent || 200) / 100.0;
     var s = sFit * z;
@@ -178,21 +160,15 @@
     // canvas height can be taller for scroll pages
     $canvas.css({ width: baseW + 'px', height: baseH + 'px' });
 
-    // translation to keep rotated viewport within positive coordinates
-    var tx = 0, ty = 0;
-    if (rot === 90) { tx = baseH * s; ty = 0; }
-    if (rot === 180) { tx = baseW * s; ty = baseH * s; }
-    if (rot === 270) { tx = 0; ty = baseW * s; }
-
-    // apply rotate + scale around top-left
+    // apply scale around top-left
     $vp.css({
       transformOrigin: '0 0',
-      transform: 'translate(' + Math.round(tx) + 'px,' + Math.round(ty) + 'px) rotate(' + rot + 'deg) scale(' + s + ')'
+      transform: 'scale(' + s + ')'
     });
 
     // compute transformed bounding size
-    var tw = Math.round(effW * s);
-    var th = Math.round(effH * s);
+    var tw = Math.round(baseW * s);
+    var th = Math.round(baseH * s);
 
     // scene gives scroll area; keep centered when possible
     var sceneW = Math.max(sw, tw + 16);
@@ -227,6 +203,7 @@
         var w = normalizeWidget(jQuery.extend(true, {}, w0), (pg.h || state.deviceH), state.deviceW);
         var $el = jQuery("<div class='sm-widget sm-remoteWidget'><div class='sm-inner'></div></div>");
         $el.attr('data-type', w.type);
+        $el.attr('data-id', w.id);
         $el.find('.sm-inner').html(widgetHtml(w));
         applyCss($el, w);
 
@@ -235,20 +212,13 @@
           $el.css('cursor','pointer');
           $el.on('click', function(e){
             e.preventDefault();
-            if (!w.command) { toast('No command set for this button.', true); return; }
+            if (!w.command) { return; }
             // Best-effort FPP command execution
             jQuery.ajax({
               url: 'api/command',
               method: 'POST',
               contentType: 'application/json',
               data: JSON.stringify({ command: w.command, args: w.args || {} })
-            }).done(function(){
-              toast('Command sent: ' + w.command, false);
-            }).fail(function(xhr){
-              var t = '';
-              try { t = (xhr && xhr.responseText) ? String(xhr.responseText) : ''; } catch(ex){}
-              toast('Command failed: ' + w.command, true);
-              if (t) { /* keep silent */ }
             });
           });
         }
@@ -272,7 +242,6 @@
       if (!cfg) { toast('No config found.', true); return; }
 
       state.cfg = cfg;
-      state.rotation = normalizeRotation(cfg.meta && cfg.meta.rotation);
       state.deviceW = (cfg.device && cfg.device.w) ? parseInt(cfg.device.w,10) : 320;
       state.deviceH = (cfg.device && cfg.device.h) ? parseInt(cfg.device.h,10) : 240;
       if (!isFinite(state.deviceW) || state.deviceW<=0) state.deviceW=320;
@@ -280,12 +249,97 @@
 
       state.pages = (cfg.pages && cfg.pages.length) ? cfg.pages : [{id:'p1', name:'Page 1', h: state.deviceH, widgets: (cfg.widgets||[])}];
       state.activePageId = cfg.activePageId || (state.pages[0] ? state.pages[0].id : 'p1');
-
-      renderTabs();
       renderCanvas();
+
+      startStatusPolling();
     }).fail(function(){
       toast('Failed to load config.', true);
     });
+  }
+
+  // ---- Status polling (uses FPP API) ----
+  var lastStatus = null;
+  var pollTimer = null;
+
+  function getPath(obj, path){
+    if (!obj || !path) return '';
+    // support brackets: sensors[0].formatted
+    var p = String(path).replace(/\[(\d+)\]/g, '.$1').split('.');
+    var cur = obj;
+    for (var i=0;i<p.length;i++) {
+      var key = p[i];
+      if (key === '') continue;
+      if (cur == null) return '';
+      cur = cur[key];
+    }
+    if (cur == null) return '';
+    if (typeof cur === 'boolean') return cur ? 'Yes' : 'No';
+    if (typeof cur === 'number') return String(cur);
+    if (typeof cur === 'string') return cur;
+    try { return JSON.stringify(cur); } catch(e) { return String(cur); }
+  }
+
+  function valueForSource(sourceId){
+    if (!sourceId) return '';
+    // New sources: fpp.* are read from /api/fppd/status
+    if (sourceId.indexOf('fpp.') === 0) {
+      return getPath(lastStatus, sourceId.substring(4));
+    }
+
+    // Backward-compatible mapping for older sources
+    var map = {
+      'player.statusText': 'status_name',
+      'player.uptime': 'uptimeStr',
+      'player.currentPlaylist': 'current_playlist.playlist',
+      'player.currentSequence': 'current_sequence',
+      'player.volume': 'volume',
+      'player.mode': 'mode_name',
+      'system.hostname': 'host_name',
+      'system.cpuTemp': 'sensors[0].formatted',
+      'system.time': 'timeStrFull'
+    };
+    if (map[sourceId]) return getPath(lastStatus, map[sourceId]);
+
+    if (sourceId === 'system.ip') {
+      // Best-effort: if you opened FPP by IP, use it.
+      return (window.location && window.location.hostname) ? String(window.location.hostname) : '';
+    }
+
+    return '';
+  }
+
+  function updateStatusWidgets(){
+    var pg = currentPage();
+    if (!pg || !pg.widgets) return;
+    // update all status widgets on current page
+    for (var i=0;i<pg.widgets.length;i++) {
+      var w = pg.widgets[i];
+      if (!w || w.type !== 'status') continue;
+      var val = valueForSource(w.source);
+      var $w = jQuery(".sm-remoteWidget[data-id='" + esc(w.id) + "']");
+      if ($w.length) {
+        $w.find('.sm-inner').text(val || '');
+      }
+    }
+  }
+
+  function startStatusPolling(){
+    if (pollTimer) { try { clearInterval(pollTimer); } catch(e){} pollTimer = null; }
+    // Poll FPP status. This endpoint matches the JSON structure you shared.
+    function poll(){
+      // Prefer relative URL (works if FPP runs under a sub-path), fallback to absolute.
+      jQuery.getJSON('api/fppd/status').done(function(js){
+        lastStatus = js;
+        updateStatusWidgets();
+      }).fail(function(){
+        jQuery.getJSON('/api/fppd/status').done(function(js2){
+          lastStatus = js2;
+          updateStatusWidgets();
+        });
+      });
+    }
+    poll();
+    pollTimer = setInterval(poll, 1000);
   }
 
   function clamp(n, a, b){ n = parseInt(n,10); if (isNaN(n)) n = a; return Math.max(a, Math.min(b, n)); }
@@ -295,6 +349,8 @@
     try { window.localStorage.setItem('showmaster_remote_zoom', String(state.zoomPercent)); } catch(e) {}
     try { jQuery('#smRZoomLabel').text(state.zoomPercent + '%'); } catch(e2) {}
     renderCanvas();
+    // after re-render, refresh status text
+    if (lastStatus) updateStatusWidgets();
   }
 
   function boot(){

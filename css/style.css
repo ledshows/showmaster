@@ -83,6 +83,18 @@
   filter:none;
 }
 
+/* Mobile: make header + logo responsive */
+@media (max-width: 700px){
+  .sm-topbar{flex-wrap:wrap;}
+  .sm-actions{width:100%;}
+  .sm-uploadRow{flex-wrap:wrap;}
+  .sm-ip{flex:1 1 100%; min-width:0;}
+  .sm-logo{width:220px; height:44px;}
+  .sm-logo img{width:220px; height:44px;}
+  .sm-wrap{padding:10px;}
+  .sm-canvasShell{padding:10px;}
+}
+
 /* Center content + add spacing only when there is both icon and text */
 .sm-widget .sm-inner{display:flex; align-items:center; justify-content:center; gap:12px;}
 
@@ -800,9 +812,9 @@
 
 /* ---- Standalone Remote page ---- */
 .sm-remoteWrap{max-width:none; width:100%; margin:0;}
-.sm-remoteTop .sm-logo{width:34px; height:34px; border-radius:10px;}
-.sm-remoteTop .sm-title{font-size:15px; font-weight:900;}
-.sm-remoteTop .sm-sub{font-size:12px; color:var(--sm-muted);}
+/* Remote page uses the same wide Showmaster logo as the builder */
+.sm-remoteTop .sm-logo{width:260px; height:52px; border-radius:0;}
+.sm-remoteTop .sm-logo img{width:260px; height:52px;}
 
 .sm-remoteToastArea{display:flex; justify-content:flex-end; margin-top:8px;}
 
@@ -815,7 +827,7 @@
 .sm-zoomBtn:hover{background:rgba(255,255,255,0.06);}
 .sm-zoomRead{min-width:54px; text-align:center; font-weight:800;}
 
-.sm-remoteStage{position:relative; flex:1; min-height:calc(100vh - 240px); overflow:auto; padding:8px 2px;}
+.sm-remoteStage{position:relative; flex:1; min-height:60vh; overflow:auto; padding:8px 2px;}
 .sm-remoteScene{position:relative; min-width:100%; min-height:100%;}
 .sm-remoteViewport{position:absolute;}
 

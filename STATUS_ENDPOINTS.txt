@@ -1,0 +1,21 @@
+Showmaster status endpoints (for firmware)
+
+All NEW status options you can pick in the Builder (the ones that start with "fpp.") are read from ONE FPP API call:
+
+1) FPP full status JSON
+   GET http://<FPP-IP>/api/fppd/status
+
+Notes:
+- On some setups FPP is hosted under a sub-path. Then this also works:
+  GET http://<FPP-IP>/<FPP-PATH>/api/fppd/status
+
+The JSON returned by /api/fppd/status matches the big example you sent (MQTT, current_playlist, scheduler, sensors, uptimeStr, etc.).
+
+How to map sources to the JSON:
+- Source "fpp.host_name"            => JSON key "host_name"
+- Source "fpp.current_playlist.playlist" => JSON keys "current_playlist" -> "playlist"
+- Source "fpp.sensors[0].formatted" => JSON keys "sensors"[0] -> "formatted"
+
+So: strip the leading "fpp." and then read the rest as a path in the /api/fppd/status JSON.
+
+That’s it — no extra status endpoints are needed for the added fpp.* options.
