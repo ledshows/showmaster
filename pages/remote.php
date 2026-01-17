@@ -22,10 +22,19 @@
   </div>
 
   <div class="sm-remoteBody">
-    <div id="smRPageTabs" class="sm-pageTabs"></div>
+    <div class="sm-remoteBar">
+      <div id="smRPageTabs" class="sm-pageTabs"></div>
+      <div class="sm-remoteZoom" title="Zoom">
+        <button class="sm-zoomBtn" id="smRZoomOut" type="button">-</button>
+        <span id="smRZoomLabel" class="sm-zoomRead">200%</span>
+        <button class="sm-zoomBtn" id="smRZoomIn" type="button">+</button>
+      </div>
+    </div>
     <div id="smRStage" class="sm-remoteStage">
-      <div id="smRViewport" class="sm-canvasViewport sm-remoteViewport">
-        <div id="smRCanvas" class="sm-canvas sm-remoteCanvas"></div>
+      <div id="smRScene" class="sm-remoteScene">
+        <div id="smRViewport" class="sm-canvasViewport sm-remoteViewport">
+          <div id="smRCanvas" class="sm-canvas sm-remoteCanvas"></div>
+        </div>
       </div>
     </div>
   </div>

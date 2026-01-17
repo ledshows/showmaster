@@ -15,8 +15,8 @@
     selectedId: null,
     snap: true,
     zoom: 200, // percent
-    rotation: 0,
-    uploadTarget: 'remote'
+    rotation: 0
+    // upload target selector removed; push always targets the Showmaster remote UI
   };
 
   // -------- helpers --------
@@ -47,6 +47,9 @@
     deg = normalizeRotation(deg);
     state.rotation = deg;
 
+    // remember previous device height so we can shrink the page height when rotating back
+    var prevH = (state.device && state.device.h) ? parseInt(state.device.h, 10) : DEVICE_H;
+
     // Device dimensions (portrait uses swapped base)
     var baseW = 320, baseH = 240;
     if (deg===90 || deg===270) { DEVICE_W = baseH; DEVICE_H = baseW; }
@@ -58,7 +61,11 @@
     // Update page minimum heights
     ensurePages();
     for (var i=0;i<state.pages.length;i++) {
-      if (!state.pages[i].h || state.pages[i].h < DEVICE_H) state.pages[i].h = DEVICE_H;
+      if (!state.pages[i].h) state.pages[i].h = DEVICE_H;
+      // grow when needed
+      if (state.pages[i].h < DEVICE_H) state.pages[i].h = DEVICE_H;
+      // shrink back when the only reason it was tall was the previous rotation
+      if (prevH > DEVICE_H && state.pages[i].h === prevH) state.pages[i].h = DEVICE_H;
     }
 
     // Update numeric input bounds
@@ -71,6 +78,9 @@
       $('#smY').attr('max', String(ph-1));
       $('#smH').attr('max', String(ph));
     } catch(e) {}
+
+    // keep page height input in sync
+    try { $('#smPageHeight').val((currentPage() && currentPage().h) ? currentPage().h : DEVICE_H); } catch(ePh) {}
 
     // UI highlight
     try {
@@ -124,7 +134,6 @@
     highlightSelection(null);
     renderPageTabs();
     ensurePages();
-    try { $('#smUploadTarget').val(state.uploadTarget || 'remote'); } catch(eUT) {}
     renderPageTabs();
     try { $('#smPageHeight').val(currentPage().h || DEVICE_H); } catch(e) {}
     // Per-page background
@@ -882,7 +891,29 @@ function makeInteractive($el, w) {
     { id:"system.memFree", label:"System: Free memory" },
     { id:"system.diskFree", label:"System: Free disk" },
     { id:"system.time", label:"System: Time" },
-    { id:"system.ip", label:"System: IP address" }
+    { id:"system.ip", label:"System: IP address" },
+
+    // ---- FPP Status JSON (extra fields) ----
+    { id:"fpp.host_name", label:"FPP: Host name" },
+    { id:"fpp.host_description", label:"FPP: Host description" },
+    { id:"fpp.platform", label:"FPP: Platform" },
+    { id:"fpp.version", label:"FPP: Version" },
+    { id:"fpp.branch", label:"FPP: Branch" },
+    { id:"fpp.uuid", label:"FPP: UUID" },
+    { id:"fpp.mode_name", label:"FPP: Mode name" },
+    { id:"fpp.status_name", label:"FPP: Status name" },
+    { id:"fpp.fppd", label:"FPPD: State" },
+    { id:"fpp.current_playlist.playlist", label:"Playlist: Current playlist" },
+    { id:"fpp.current_sequence", label:"Playlist: Current sequence" },
+    { id:"fpp.volume", label:"Audio: Volume" },
+    { id:"fpp.uptimeStr", label:"System: Uptime" },
+    { id:"fpp.dateStr", label:"System: Date" },
+    { id:"fpp.timeStrFull", label:"System: Time (full)" },
+    { id:"fpp.scheduler.status", label:"Scheduler: Status" },
+    { id:"fpp.MQTT.configured", label:"MQTT: Configured" },
+    { id:"fpp.MQTT.connected", label:"MQTT: Connected" },
+    { id:"fpp.sensors[0].formatted", label:"Sensor: CPU temp" },
+    { id:"fpp.powerBad", label:"System: Power bad" }
   ];
   function prettySource(id) {
     for (var i=0;i<SOURCES.length;i++) if (SOURCES[i].id === id) return SOURCES[i].label;
@@ -953,7 +984,7 @@ function makeInteractive($el, w) {
     ensurePages();
     // Keep device.bg as a default/fallback, but backgrounds are per-page.
     var out = { device: { w: DEVICE_W, h: DEVICE_H, bg: state.device.bg }, pages: [], activePageId: state.activePageId };
-    out.meta = { rotation: state.rotation || 0, uploadTarget: state.uploadTarget || 'remote' };
+    out.meta = { rotation: state.rotation || 0 };
     for (var p=0;p<state.pages.length;p++) {
       var pg = state.pages[p];
       var pgOut = { id: pg.id, name: pg.name, h: pg.h || DEVICE_H, bg: pg.bg || state.device.bg || '#070a12', widgets: [] };
@@ -978,7 +1009,7 @@ function makeInteractive($el, w) {
       if (parseInt(obj.device.w,10)===240 && parseInt(obj.device.h,10)===320) state.rotation = 90;
       else state.rotation = 0;
     }
-    if (obj.meta && obj.meta.uploadTarget) state.uploadTarget = String(obj.meta.uploadTarget);
+    // uploadTarget removed (kept for backwards compatibility in JSON)
 
     // Backward compatibility: older configs stored a single widgets[] array.
     if (obj.pages && obj.pages.length) {
@@ -1003,7 +1034,7 @@ function makeInteractive($el, w) {
       $("#smCanvasBg").val(bg);
       document.getElementById('smCanvas').style.setProperty('--smCanvasBg', bg);
     } catch(e) {}
-    try { $('#smUploadTarget').val(state.uploadTarget || 'remote'); } catch(eT) {}
+    // upload target selector removed
     // highlight rotation buttons
     try { $('#smRotSeg button').removeClass('active'); $('#smRotSeg button[data-rot="' + (state.rotation||0) + '"]').addClass('active'); } catch(eR) {}
     $("#smPageHeight").val(currentPage().h || DEVICE_H);
@@ -1054,7 +1085,7 @@ function makeInteractive($el, w) {
     // allow IP or hostname (showmaster.local / Showmaster-xxxx)
     if (!/^[a-zA-Z0-9.\-:]+$/.test(host)) { toast("Invalid IP/host.", true); return; }
 
-    try { state.uploadTarget = String($('#smUploadTarget').val() || 'remote'); } catch(eT) { state.uploadTarget='remote'; }
+    // upload target selector removed; always push remote UI
 
     var cfg = exportConfig();
     // Ensure FPP target is embedded in the JSON so the Showmaster can send commands.
@@ -1072,7 +1103,7 @@ function makeInteractive($el, w) {
       method: 'POST',
       contentType: 'application/json',
       dataType: 'json',
-      data: JSON.stringify({ host: host, config: cfg, target: ($('#smUploadTarget').val()||'remote') })
+      data: JSON.stringify({ host: host, config: cfg, target: 'remote' })
     })
     .done(function(res){
       dbg('Push response: ' + JSON.stringify(res));
@@ -1095,15 +1126,11 @@ function makeInteractive($el, w) {
   function wireUi() {
     fillSources();
 
-    // Rotation control
-    $(document).off('click.smRot').on('click.smRot', '#smRotSeg button', function(e){
+    // Rotation segmented control
+    $(document).off("click.smRot").on("click.smRot", "#smRotSeg button", function(e){
       e.preventDefault();
-      applyRotation($(this).attr('data-rot')||0);
-    });
-
-    // Upload target selector
-    $('#smUploadTarget').off('change').on('change', function(){
-      state.uploadTarget = $(this).val() || 'remote';
+      var deg = $(this).attr('data-rot');
+      applyRotation(deg, false);
     });
 
     // Debug log toggle
@@ -1193,17 +1220,7 @@ function makeInteractive($el, w) {
     });
 
     $("#smUpload").off("click").on("click", function(e){ e.preventDefault(); pushToShowmaster(); });
-    // Upload target selector
-    $("#smUploadTarget").off("change").on("change", function(){
-      try { state.uploadTarget = String($(this).val()||'remote'); } catch(e) {}
-    });
-
-    // Rotation segmented control
-    $(document).off("click.smRot").on("click.smRot", "#smRotSeg button", function(e){
-      e.preventDefault();
-      var deg = $(this).attr('data-rot');
-      applyRotation(deg, false);
-    });
+    // upload target selector removed
 
     // Scan for Showmaster on local network (best-effort)
     $("#smScan").off("click").on("click", function(e){
@@ -1308,15 +1325,13 @@ function makeInteractive($el, w) {
 
   function boot() {
     wireUi();
-    // init rotation + upload target UI
-    try { $('#smUploadTarget').val(state.uploadTarget || 'remote'); } catch(eUT) {}
+    // init rotation UI
     applyRotation(state.rotation || 0, true);
     try { $("#smCanvasBg").val((currentPage() && currentPage().bg) ? currentPage().bg : state.device.bg); } catch(e) {}
     $("#smGridToggle").prop("checked", state.snap);
     $("#smZoom").val(state.zoom);
     ensurePages();
     applyRotation(state.rotation || 0, true);
-    try { $('#smUploadTarget').val(state.uploadTarget || 'remote'); } catch(eT) {}
     try { $('#smRotSeg button').removeClass('active'); $('#smRotSeg button[data-rot="' + (state.rotation||0) + '"]').addClass('active'); } catch(eR) {}
     renderPageTabs();
     try { $('#smPageHeight').val(currentPage().h || DEVICE_H); } catch(e) {}

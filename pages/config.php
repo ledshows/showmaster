@@ -22,21 +22,7 @@
           <input class="sm-ip" id="smDeviceIp" placeholder="Showmaster IP (e.g. 192.168.1.50)" list="smScannedIps" />
           <datalist id="smScannedIps"></datalist>
           <button class="buttons btn-outline-light" id="smScan" type="button" title="Scan network for Showmaster">Scan</button>
-          <select id="smUploadTarget" class="sm-uploadTarget" title="Choose where to upload">
-            <option value="remote">Remote UI</option>
-            <option value="web">Web UI</option>
-          </select>
           <button class="buttons btn-primary" id="smUpload" type="button">Push to Showmaster</button>
-          <div class="sm-rotControl" title="Rotate remote UI">
-            <span class="sm-rotLabel">Rotate</span>
-            <div class="sm-rotSeg" id="smRotSeg">
-              <button type="button" data-rot="0">0°</button>
-              <button type="button" data-rot="90">90°</button>
-              <button type="button" data-rot="180">180°</button>
-              <button type="button" data-rot="270">270°</button>
-            </div>
-          </div>
-          <a class="sm-remoteLink" href="plugin.php?plugin=showmaster&page=pages/remote.php" title="Open standalone remote (no Showmaster required)">Standalone Remote</a>
         </div>
       </div>
 
@@ -50,6 +36,15 @@
     <div class="sm-canvasShell">
       <div class="sm-canvasTitle">
         <div class="sm-canvasTools">
+          <div class="sm-rotControl" title="Rotate remote UI">
+            <span class="sm-rotLabel">Rotate</span>
+            <div class="sm-rotSeg" id="smRotSeg">
+              <button type="button" data-rot="0">0°</button>
+              <button type="button" data-rot="90">90°</button>
+              <button type="button" data-rot="180">180°</button>
+              <button type="button" data-rot="270">270°</button>
+            </div>
+          </div>
           <span class="sm-toolLabel">Background</span>
           <input id="smCanvasBg" type="color" value="#0b1020" title="Canvas background" />
           <label class="sm-check"><span class="sm-checkText">Snap</span><input id="smGridToggle" type="checkbox" checked /></label>

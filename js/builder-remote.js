@@ -31,6 +31,28 @@
       'player.volume':'Player: Volume',
       'system.time':'System: Time',
       'system.ip':'System: IP address'
+      ,
+      // FPP status JSON extras
+      'fpp.host_name':'FPP: Host name',
+      'fpp.host_description':'FPP: Host description',
+      'fpp.platform':'FPP: Platform',
+      'fpp.version':'FPP: Version',
+      'fpp.branch':'FPP: Branch',
+      'fpp.uuid':'FPP: UUID',
+      'fpp.mode_name':'FPP: Mode name',
+      'fpp.status_name':'FPP: Status name',
+      'fpp.fppd':'FPPD: State',
+      'fpp.current_playlist.playlist':'Playlist: Current playlist',
+      'fpp.current_sequence':'Playlist: Current sequence',
+      'fpp.volume':'Audio: Volume',
+      'fpp.uptimeStr':'System: Uptime',
+      'fpp.dateStr':'System: Date',
+      'fpp.timeStrFull':'System: Time (full)',
+      'fpp.scheduler.status':'Scheduler: Status',
+      'fpp.MQTT.configured':'MQTT: Configured',
+      'fpp.MQTT.connected':'MQTT: Connected',
+      'fpp.sensors[0].formatted':'Sensor: CPU temp',
+      'fpp.powerBad':'System: Power bad'
     };
     return map[id] || (id || '');
   }
@@ -92,7 +114,8 @@
     deviceW: 320,
     deviceH: 240,
     rotation: 0,
-    scale: 1
+    scale: 1,
+    zoomPercent: 200
   };
 
   function currentPage(){
@@ -125,13 +148,23 @@
     var sw = $stage.width() || 320;
     var sh = $stage.height() || 240;
 
+    var $scene = jQuery('#smRScene');
+
+    // use page height (can be taller than the device height)
+    var pg = currentPage();
+    var ph = (pg && pg.h) ? parseInt(pg.h,10) : state.deviceH;
+    if (!isFinite(ph) || ph < state.deviceH) ph = state.deviceH;
+
     var baseW = state.deviceW;
-    var baseH = state.deviceH;
+    var baseH = ph;
     var rot = state.rotation;
     var effW = (rot===90||rot===270) ? baseH : baseW;
     var effH = (rot===90||rot===270) ? baseW : baseH;
 
-    var s = Math.min(sw/effW, sh/effH);
+    var sFit = Math.min(sw/effW, sh/effH);
+    if (!isFinite(sFit) || sFit<=0) sFit = 1;
+    var z = (state.zoomPercent || 200) / 100.0;
+    var s = sFit * z;
     if (!isFinite(s) || s<=0) s = 1;
     s = Math.max(0.2, Math.min(3.0, s));
     state.scale = s;
@@ -142,24 +175,35 @@
     // set base sizes in px (unscaled)
     $vp.css({ width: baseW + 'px', height: baseH + 'px' });
 
-    // apply rotate + scale around top-left, then center in stage
+    // canvas height can be taller for scroll pages
+    $canvas.css({ width: baseW + 'px', height: baseH + 'px' });
+
+    // translation to keep rotated viewport within positive coordinates
+    var tx = 0, ty = 0;
+    if (rot === 90) { tx = baseH * s; ty = 0; }
+    if (rot === 180) { tx = baseW * s; ty = baseH * s; }
+    if (rot === 270) { tx = 0; ty = baseW * s; }
+
+    // apply rotate + scale around top-left
     $vp.css({
       transformOrigin: '0 0',
-      transform: 'scale(' + s + ') rotate(' + rot + 'deg)'
+      transform: 'translate(' + Math.round(tx) + 'px,' + Math.round(ty) + 'px) rotate(' + rot + 'deg) scale(' + s + ')'
     });
 
-    // center the transformed viewport in stage
-    var tw = effW * s;
-    var th = effH * s;
-    var left = Math.max(0, Math.round((sw - tw)/2));
-    var top = Math.max(0, Math.round((sh - th)/2));
-    $vp.css({ position:'absolute', left:left+'px', top:top+'px' });
+    // compute transformed bounding size
+    var tw = Math.round(effW * s);
+    var th = Math.round(effH * s);
 
-    // canvas height can be taller for scroll pages
-    var pg = currentPage();
-    var ph = (pg && pg.h) ? parseInt(pg.h,10) : baseH;
-    if (!isFinite(ph) || ph < baseH) ph = baseH;
-    $canvas.css({ width: baseW + 'px', height: ph + 'px' });
+    // scene gives scroll area; keep centered when possible
+    var sceneW = Math.max(sw, tw + 16);
+    var sceneH = Math.max(sh, th + 16);
+    $scene.css({ width: sceneW + 'px', height: sceneH + 'px' });
+
+    var left = Math.round((sceneW - tw)/2);
+    var top = Math.round((sceneH - th)/2);
+    if (left < 8) left = 8;
+    if (top < 8) top = 8;
+    $vp.css({ position:'absolute', left:left+'px', top:top+'px' });
   }
 
   function renderCanvas(){
@@ -244,10 +288,28 @@
     });
   }
 
+  function clamp(n, a, b){ n = parseInt(n,10); if (isNaN(n)) n = a; return Math.max(a, Math.min(b, n)); }
+
+  function setZoom(p){
+    state.zoomPercent = clamp(p, 100, 300);
+    try { window.localStorage.setItem('showmaster_remote_zoom', String(state.zoomPercent)); } catch(e) {}
+    try { jQuery('#smRZoomLabel').text(state.zoomPercent + '%'); } catch(e2) {}
+    renderCanvas();
+  }
+
   function boot(){
     if (!window.jQuery) { try { alert('jQuery missing'); } catch(e){} return; }
     // stage needs positioning for centering
     try { jQuery('#smRStage').css('position','relative'); } catch(e){}
+    // restore zoom
+    try {
+      var z = parseInt(window.localStorage.getItem('showmaster_remote_zoom')||'200', 10);
+      if (isFinite(z)) state.zoomPercent = z;
+    } catch(eZ) {}
+    try { jQuery('#smRZoomLabel').text((state.zoomPercent||200) + '%'); } catch(eLbl) {}
+
+    jQuery('#smRZoomOut').off('click').on('click', function(e){ e.preventDefault(); setZoom((state.zoomPercent||200) - 25); });
+    jQuery('#smRZoomIn').off('click').on('click', function(e){ e.preventDefault(); setZoom((state.zoomPercent||200) + 25); });
     loadConfig();
     jQuery(window).on('resize', function(){ renderCanvas(); });
   }
