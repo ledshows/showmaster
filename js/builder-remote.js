@@ -135,8 +135,13 @@
       var next = Math.max(0, Math.floor(cur + deltaSeconds));
       // Seek by restarting the current sequence at new second.
       // Documented: GET /api/sequence/:SequenceName/start/:startSecond
-      var url = 'api/sequence/' + encodeURIComponent(seq) + '/start/' + encodeURIComponent(String(next));
-      jQuery.ajax({ url: url, method: 'GET' });
+      // NOTE: builder-remote runs under /plugin/showmaster/, so relative "api/..." would hit
+      // /plugin/showmaster/api/... (wrong). We prefer absolute /api/... and fall back.
+      var urlAbs = '/api/sequence/' + encodeURIComponent(seq) + '/start/' + encodeURIComponent(String(next));
+      var urlRel = 'api/sequence/' + encodeURIComponent(seq) + '/start/' + encodeURIComponent(String(next));
+      jQuery.ajax({ url: urlAbs, method: 'GET' }).fail(function(){
+        jQuery.ajax({ url: urlRel, method: 'GET' });
+      });
     });
   }
 
