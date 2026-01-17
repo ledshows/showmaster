@@ -3,9 +3,17 @@
 if (!empty($GLOBALS['__showmaster_menu_added'])) { return; }
 $GLOBALS['__showmaster_menu_added'] = true;
 
-printf("<li><a href='plugin.php?plugin=%s&page=%s'>%s</a></li>\n",
+printf("<li><a href='plugin.php?plugin=%s&page=%s'>%s</a></li>
+",
     $plugin,
     'plugin.php',
     'Showmaster Builder'
+);
+
+printf("<li><a href='plugin.php?plugin=%s&page=%s'>%s</a></li>
+",
+    $plugin,
+    'pages/remote.php',
+    'Showmaster Remote'
 );
 ?>

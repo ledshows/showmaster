@@ -14,7 +14,9 @@
     playlists: [],
     selectedId: null,
     snap: true,
-    zoom: 200 // percent
+    zoom: 200, // percent
+    rotation: 0,
+    uploadTarget: 'remote'
   };
 
   // -------- helpers --------
@@ -31,6 +33,57 @@
     return clamp(v, 100, 300);
   }
   function getScale() { return getZoomPercent() / 100.0; }
+
+
+  function normalizeRotation(deg){
+    deg = parseInt(deg,10); if (isNaN(deg)) deg = 0;
+    deg = ((deg % 360) + 360) % 360;
+    if (deg===360) deg=0;
+    if (deg!==0 && deg!==90 && deg!==180 && deg!==270) deg=0;
+    return deg;
+  }
+
+  function applyRotation(deg, skipRender){
+    deg = normalizeRotation(deg);
+    state.rotation = deg;
+
+    // Device dimensions (portrait uses swapped base)
+    var baseW = 320, baseH = 240;
+    if (deg===90 || deg===270) { DEVICE_W = baseH; DEVICE_H = baseW; }
+    else { DEVICE_W = baseW; DEVICE_H = baseH; }
+
+    state.device.w = DEVICE_W;
+    state.device.h = DEVICE_H;
+
+    // Update page minimum heights
+    ensurePages();
+    for (var i=0;i<state.pages.length;i++) {
+      if (!state.pages[i].h || state.pages[i].h < DEVICE_H) state.pages[i].h = DEVICE_H;
+    }
+
+    // Update numeric input bounds
+    try {
+      $('#smX').attr('max', String(DEVICE_W-1));
+      $('#smW').attr('max', String(DEVICE_W));
+      $('#smPageHeight').attr('min', String(DEVICE_H));
+      var ph = toInt((currentPage() && currentPage().h) ? currentPage().h : DEVICE_H, DEVICE_H);
+      if (ph < DEVICE_H) ph = DEVICE_H;
+      $('#smY').attr('max', String(ph-1));
+      $('#smH').attr('max', String(ph));
+    } catch(e) {}
+
+    // UI highlight
+    try {
+      $('#smRotSeg button').removeClass('active');
+      $('#smRotSeg button[data-rot="'+deg+'"]').addClass('active');
+    } catch(e2) {}
+
+    if (!skipRender) {
+      renderPageTabs();
+      renderCanvas();
+      renderProps();
+    }
+  }
 
   function toast(msg, isErr) {
     var $t = $("#smToast");
@@ -71,6 +124,7 @@
     highlightSelection(null);
     renderPageTabs();
     ensurePages();
+    try { $('#smUploadTarget').val(state.uploadTarget || 'remote'); } catch(eUT) {}
     renderPageTabs();
     try { $('#smPageHeight').val(currentPage().h || DEVICE_H); } catch(e) {}
     // Per-page background
@@ -652,7 +706,7 @@ function makeInteractive($el, w) {
         }
       }
       return out;
-    }
+  }
     return [];
   }
 
@@ -899,6 +953,7 @@ function makeInteractive($el, w) {
     ensurePages();
     // Keep device.bg as a default/fallback, but backgrounds are per-page.
     var out = { device: { w: DEVICE_W, h: DEVICE_H, bg: state.device.bg }, pages: [], activePageId: state.activePageId };
+    out.meta = { rotation: state.rotation || 0, uploadTarget: state.uploadTarget || 'remote' };
     for (var p=0;p<state.pages.length;p++) {
       var pg = state.pages[p];
       var pgOut = { id: pg.id, name: pg.name, h: pg.h || DEVICE_H, bg: pg.bg || state.device.bg || '#070a12', widgets: [] };
@@ -916,6 +971,15 @@ function makeInteractive($el, w) {
     if (!obj) return;
     if (obj.device && obj.device.bg) state.device.bg = obj.device.bg;
 
+    // meta: rotation + upload target
+    if (obj.meta && typeof obj.meta.rotation !== 'undefined') state.rotation = normalizeRotation(obj.meta.rotation);
+    else if (obj.device && obj.device.w && obj.device.h) {
+      // infer portrait from w/h
+      if (parseInt(obj.device.w,10)===240 && parseInt(obj.device.h,10)===320) state.rotation = 90;
+      else state.rotation = 0;
+    }
+    if (obj.meta && obj.meta.uploadTarget) state.uploadTarget = String(obj.meta.uploadTarget);
+
     // Backward compatibility: older configs stored a single widgets[] array.
     if (obj.pages && obj.pages.length) {
       state.pages = obj.pages;
@@ -926,6 +990,7 @@ function makeInteractive($el, w) {
       state.activePageId = pid;
     }
 
+    applyRotation(state.rotation || 0, true);
     ensurePages();
     // Ensure each page has its own background
     for (var i=0;i<(state.pages||[]).length;i++) {
@@ -938,6 +1003,9 @@ function makeInteractive($el, w) {
       $("#smCanvasBg").val(bg);
       document.getElementById('smCanvas').style.setProperty('--smCanvasBg', bg);
     } catch(e) {}
+    try { $('#smUploadTarget').val(state.uploadTarget || 'remote'); } catch(eT) {}
+    // highlight rotation buttons
+    try { $('#smRotSeg button').removeClass('active'); $('#smRotSeg button[data-rot="' + (state.rotation||0) + '"]').addClass('active'); } catch(eR) {}
     $("#smPageHeight").val(currentPage().h || DEVICE_H);
     renderPageTabs();
     renderCanvas(); renderProps();
@@ -986,6 +1054,8 @@ function makeInteractive($el, w) {
     // allow IP or hostname (showmaster.local / Showmaster-xxxx)
     if (!/^[a-zA-Z0-9.\-:]+$/.test(host)) { toast("Invalid IP/host.", true); return; }
 
+    try { state.uploadTarget = String($('#smUploadTarget').val() || 'remote'); } catch(eT) { state.uploadTarget='remote'; }
+
     var cfg = exportConfig();
     // Ensure FPP target is embedded in the JSON so the Showmaster can send commands.
     // (Builder runs on FPP, so window.location.hostname is the correct target.)
@@ -1002,7 +1072,7 @@ function makeInteractive($el, w) {
       method: 'POST',
       contentType: 'application/json',
       dataType: 'json',
-      data: JSON.stringify({ host: host, config: cfg })
+      data: JSON.stringify({ host: host, config: cfg, target: ($('#smUploadTarget').val()||'remote') })
     })
     .done(function(res){
       dbg('Push response: ' + JSON.stringify(res));
@@ -1024,6 +1094,17 @@ function makeInteractive($el, w) {
   // -------- init --------
   function wireUi() {
     fillSources();
+
+    // Rotation control
+    $(document).off('click.smRot').on('click.smRot', '#smRotSeg button', function(e){
+      e.preventDefault();
+      applyRotation($(this).attr('data-rot')||0);
+    });
+
+    // Upload target selector
+    $('#smUploadTarget').off('change').on('change', function(){
+      state.uploadTarget = $(this).val() || 'remote';
+    });
 
     // Debug log toggle
     $("#smDebugToggle").off("change").on("change", function(){
@@ -1071,6 +1152,13 @@ function makeInteractive($el, w) {
       if (h < DEVICE_H) h = DEVICE_H;
       pg.h = h;
       renderCanvas();
+      try {
+        var pg = currentPage();
+        var ph = toInt(pg && pg.h ? pg.h : DEVICE_H, DEVICE_H);
+        if (ph < DEVICE_H) ph = DEVICE_H;
+        $('#smY').attr('max', String(ph-1));
+        $('#smH').attr('max', String(ph));
+      } catch(exB) {}
     });
 
     $("#smSave").off("click").on("click", function(){
@@ -1105,6 +1193,17 @@ function makeInteractive($el, w) {
     });
 
     $("#smUpload").off("click").on("click", function(e){ e.preventDefault(); pushToShowmaster(); });
+    // Upload target selector
+    $("#smUploadTarget").off("change").on("change", function(){
+      try { state.uploadTarget = String($(this).val()||'remote'); } catch(e) {}
+    });
+
+    // Rotation segmented control
+    $(document).off("click.smRot").on("click.smRot", "#smRotSeg button", function(e){
+      e.preventDefault();
+      var deg = $(this).attr('data-rot');
+      applyRotation(deg, false);
+    });
 
     // Scan for Showmaster on local network (best-effort)
     $("#smScan").off("click").on("click", function(e){
@@ -1209,10 +1308,16 @@ function makeInteractive($el, w) {
 
   function boot() {
     wireUi();
+    // init rotation + upload target UI
+    try { $('#smUploadTarget').val(state.uploadTarget || 'remote'); } catch(eUT) {}
+    applyRotation(state.rotation || 0, true);
     try { $("#smCanvasBg").val((currentPage() && currentPage().bg) ? currentPage().bg : state.device.bg); } catch(e) {}
     $("#smGridToggle").prop("checked", state.snap);
     $("#smZoom").val(state.zoom);
     ensurePages();
+    applyRotation(state.rotation || 0, true);
+    try { $('#smUploadTarget').val(state.uploadTarget || 'remote'); } catch(eT) {}
+    try { $('#smRotSeg button').removeClass('active'); $('#smRotSeg button[data-rot="' + (state.rotation||0) + '"]').addClass('active'); } catch(eR) {}
     renderPageTabs();
     try { $('#smPageHeight').val(currentPage().h || DEVICE_H); } catch(e) {}
     renderCanvas();

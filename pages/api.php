@@ -170,6 +170,10 @@ if ($cmd === 'push') {
   if (isset($req['config'])) $config = $req['config'];
   else if (isset($req['json'])) $config = $req['json'];
 
+  $target = 'remote';
+  if (isset($req['target'])) { $target = strtolower(trim((string)$req['target'])); }
+  if ($target !== 'web' && $target !== 'remote') $target = 'remote';
+
   if ($host === '' || $config === null) respond(false, 'host and config are required');
   if (!preg_match('/^[a-zA-Z0-9.\-:]+$/', $host)) respond(false, 'Invalid device address');
 
@@ -180,11 +184,13 @@ if ($cmd === 'push') {
   if ($tmp === false) respond(false, 'Failed to create temp file');
   file_put_contents($tmp, $payload);
 
-  $cfgUrl = 'http://' . $host . '/showmaster/config';
-  $reloadUrl = 'http://' . $host . '/showmaster/reload';
-  $pingUrl = 'http://' . $host . '/showmaster/ping';
+  // Let the Showmaster decide between Remote UI / Web UI. Query string is ignored by older firmwares.
+  $qs = '?target=' . $target;
+  $cfgUrl = 'http://' . $host . '/showmaster/config' . $qs;
+  $reloadUrl = 'http://' . $host . '/showmaster/reload' . $qs;
+  $pingUrl = 'http://' . $host . '/showmaster/ping' . $qs;
   $pingUrlLegacy = 'http://' . $host . '/ping';
-  $logUrl = 'http://' . $host . '/showmaster/log';
+  $logUrl = 'http://' . $host . '/showmaster/log' . $qs;
 
   $file = new CURLFile($tmp, 'application/json', 'showmaster.json');
   $post = array('file' => $file);
