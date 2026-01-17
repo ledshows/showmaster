@@ -10,14 +10,16 @@
       <div class="sm-subtitle"></div>
     </div>
 
+    <!-- Notice / toast lives between the logo and the action buttons -->
+    <div class="sm-topNotice">
+      <div id="smToast" class="sm-toast sm-toastTop" style="display:none;"></div>
+    </div>
+
     <div class="sm-actions">
       <button class="buttons btn-success" id="smSave">Save</button>
       <button class="buttons btn-outline-light" id="smLoad">Load JSON</button>
       <button class="buttons btn-outline-light" id="smDownload" type="button">Download JSON</button>
       <div class="sm-upload">
-        <div class="sm-toastAreaTop">
-          <div id="smToast" class="sm-toast" style="display:none;"></div>
-        </div>
         <div class="sm-uploadRow">
           <input class="sm-ip" id="smDeviceIp" placeholder="Showmaster IP (e.g. 192.168.1.50)" list="smScannedIps" />
           <datalist id="smScannedIps"></datalist>
@@ -33,40 +35,61 @@
   </div>
 
   <div class="sm-body">
-    <div class="sm-canvasShell">
-      <div class="sm-canvasTitle">
-        <div class="sm-canvasTools">
-          <div class="sm-rotControl" title="Rotate remote UI">
-            <span class="sm-rotLabel">Rotate</span>
-            <div class="sm-rotSeg" id="smRotSeg">
-              <button type="button" data-rot="0">0°</button>
-              <button type="button" data-rot="90">90°</button>
-              <button type="button" data-rot="180">180°</button>
-              <button type="button" data-rot="270">270°</button>
-            </div>
+
+    <!-- Left: canvas settings -->
+    <div class="sm-leftPanel">
+      <div class="sm-panelTitle">Canvas settings</div>
+
+      <div class="sm-leftGroup">
+        <div class="sm-rotControl" title="Rotate builder canvas">
+          <span class="sm-rotLabel">Rotate</span>
+          <div class="sm-rotSeg" id="smRotSeg">
+            <button type="button" data-rot="0">0°</button>
+            <button type="button" data-rot="90">90°</button>
+            <button type="button" data-rot="180">180°</button>
+            <button type="button" data-rot="270">270°</button>
           </div>
+        </div>
+
+        <div class="sm-leftRow">
           <span class="sm-toolLabel">Background</span>
           <input id="smCanvasBg" type="color" value="#0b1020" title="Canvas background" />
+        </div>
+
+        <div class="sm-leftRow">
           <label class="sm-check"><span class="sm-checkText">Snap</span><input id="smGridToggle" type="checkbox" checked /></label>
-          <span class="sm-toolLabel sm-ml">Zoom</span>
-          <input id="smZoom" class="sm-zoomSlider" type="range" min="100" max="300" step="25" value="200" />
+        </div>
+
+        <div class="sm-leftRow sm-leftZoomRow">
+          <span class="sm-toolLabel">Zoom</span>
+          <input id="smZoom" class="sm-zoomSlider" type="range" min="100" max="250" step="25" value="200" />
           <span id="smZoomLabel" class="sm-zoomLabel">200%</span>
         </div>
+
+        <div class="sm-leftRow">
+          <span class="sm-toolLabel">Page height</span>
+          <input id="smPageHeight" type="number" class="sm-pageHeightInline" min="240" step="10" value="240" title="Page height" />
+        </div>
       </div>
-      
-      <div class="sm-pagesBar">
-        <div id="smPageTabs" class="sm-pageTabs"></div>
-        <button id="smAddPage" class="btn btn-outline-light btn-sm sm-addPage" type="button" title="Add page">+</button>
-        <input id="smPageHeight" type="number" class="sm-pageHeightInline" min="240" step="10" value="240" title="Page height" />
-      </div>
-      <div id="smCanvasViewport" class="sm-canvasViewport">
-<div id="smCanvas" class="sm-canvas" aria-label="Showmaster canvas">
-        <div class="sm-grid"></div>
-      </div>
-      </div>
-      <!-- hint removed -->
     </div>
 
+    <!-- Middle: canvas -->
+    <div class="sm-canvasShell">
+      <div class="sm-pagesBar sm-pagesBarCenter">
+        <div id="smPageTabs" class="sm-pageTabs"></div>
+        <button id="smAddPage" class="btn btn-outline-light btn-sm sm-addPage" type="button" title="Add page">+</button>
+      </div>
+
+      <div class="sm-canvasCenter">
+        <div id="smCanvasViewport" class="sm-canvasViewport">
+          <div id="smCanvas" class="sm-canvas" aria-label="Showmaster canvas">
+            <div class="sm-grid"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: widget settings -->
     <div class="sm-props">
       <div class="sm-propsHeader">
         <div class="sm-propsRow sm-propsRowAdd">

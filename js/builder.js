@@ -30,7 +30,7 @@
   function getZoomPercent() {
     var v = toInt($("#smZoom").val(), state.zoom);
     if (v < 100) v = 100;
-    return clamp(v, 100, 300);
+    return clamp(v, 100, 250);
   }
   function getScale() { return getZoomPercent() / 100.0; }
 
@@ -1306,7 +1306,7 @@ function makeInteractive($el, w) {
     });
 
     $("#smZoom").off("input change").on("input change", function(){
-      state.zoom = toInt($(this).val(), 200);
+      state.zoom = clamp(toInt($(this).val(), 200), 100, 250);
       renderCanvas();
     });
 
@@ -1325,6 +1325,8 @@ function makeInteractive($el, w) {
 
   function boot() {
     wireUi();
+    // clamp zoom to slider range before first render (fixes initial slider jump)
+    state.zoom = clamp(state.zoom || 200, 100, 250);
     // init rotation UI
     applyRotation(state.rotation || 0, true);
     try { $("#smCanvasBg").val((currentPage() && currentPage().bg) ? currentPage().bg : state.device.bg); } catch(e) {}
