@@ -15,7 +15,10 @@
     selectedId: null,
     snap: true,
     zoom: 200, // percent
-    rotation: 0
+    rotation: 0,
+    // Display settings (stored in JSON for firmware)
+    screenTimeout: 60, // seconds
+    brightness: 100    // percent
     // upload target selector removed; push always targets the Showmaster remote UI
   };
 
@@ -985,6 +988,11 @@ function makeInteractive($el, w) {
     // Keep device.bg as a default/fallback, but backgrounds are per-page.
     var out = { device: { w: DEVICE_W, h: DEVICE_H, bg: state.device.bg }, pages: [], activePageId: state.activePageId };
     out.meta = { rotation: state.rotation || 0 };
+
+    // Firmware display settings
+    out.settings = out.settings || {};
+    out.settings.screenTimeout = toInt(state.screenTimeout, 60);
+    out.settings.brightness = clamp(toInt(state.brightness, 100), 0, 100);
     for (var p=0;p<state.pages.length;p++) {
       var pg = state.pages[p];
       var pgOut = { id: pg.id, name: pg.name, h: pg.h || DEVICE_H, bg: pg.bg || state.device.bg || '#070a12', widgets: [] };
@@ -1001,6 +1009,14 @@ function makeInteractive($el, w) {
   function loadConfig(obj) {
     if (!obj) return;
     if (obj.device && obj.device.bg) state.device.bg = obj.device.bg;
+
+    // Display settings (optional)
+    try {
+      if (obj.settings) {
+        if (typeof obj.settings.screenTimeout !== 'undefined') state.screenTimeout = toInt(obj.settings.screenTimeout, state.screenTimeout);
+        if (typeof obj.settings.brightness !== 'undefined') state.brightness = clamp(toInt(obj.settings.brightness, state.brightness), 0, 100);
+      }
+    } catch(eSet) {}
 
     // meta: rotation + upload target
     if (obj.meta && typeof obj.meta.rotation !== 'undefined') state.rotation = normalizeRotation(obj.meta.rotation);
@@ -1038,6 +1054,13 @@ function makeInteractive($el, w) {
     // highlight rotation buttons
     try { $('#smRotSeg button').removeClass('active'); $('#smRotSeg button[data-rot="' + (state.rotation||0) + '"]').addClass('active'); } catch(eR) {}
     $("#smPageHeight").val(currentPage().h || DEVICE_H);
+
+    // display settings UI
+    try {
+      $("#smScreenTimeout").val(toInt(state.screenTimeout, 60));
+      $("#smBrightness").val(clamp(toInt(state.brightness, 100), 0, 100));
+      $("#smBrightnessLabel").text(clamp(toInt(state.brightness, 100), 0, 100) + "%");
+    } catch(eUi) {}
     renderPageTabs();
     renderCanvas(); renderProps();
   }
@@ -1188,6 +1211,15 @@ function makeInteractive($el, w) {
       } catch(exB) {}
     });
 
+    $("#smScreenTimeout").off("change").on("change", function(){
+      state.screenTimeout = Math.max(0, toInt($(this).val(), state.screenTimeout));
+    });
+
+    $("#smBrightness").off("input change").on("input change", function(){
+      state.brightness = clamp(toInt($(this).val(), state.brightness), 0, 100);
+      try { $("#smBrightnessLabel").text(state.brightness + "%"); } catch(e) {}
+    });
+
     $("#smSave").off("click").on("click", function(){
       var cfg = exportConfig();
       apiSaveConfig(cfg).done(function(){ toast("Saved.", false); }).fail(function(){ toast("Save failed.", true); });
@@ -1306,7 +1338,7 @@ function makeInteractive($el, w) {
     });
 
     $("#smZoom").off("input change").on("input change", function(){
-      state.zoom = clamp(toInt($(this).val(), 200), 100, 250);
+      state.zoom = toInt($(this).val(), 200);
       renderCanvas();
     });
 
@@ -1325,13 +1357,16 @@ function makeInteractive($el, w) {
 
   function boot() {
     wireUi();
-    // clamp zoom to slider range before first render (fixes initial slider jump)
-    state.zoom = clamp(state.zoom || 200, 100, 250);
     // init rotation UI
     applyRotation(state.rotation || 0, true);
     try { $("#smCanvasBg").val((currentPage() && currentPage().bg) ? currentPage().bg : state.device.bg); } catch(e) {}
     $("#smGridToggle").prop("checked", state.snap);
     $("#smZoom").val(state.zoom);
+    try {
+      $("#smScreenTimeout").val(toInt(state.screenTimeout, 60));
+      $("#smBrightness").val(clamp(toInt(state.brightness, 100), 0, 100));
+      $("#smBrightnessLabel").text(clamp(toInt(state.brightness, 100), 0, 100) + "%");
+    } catch(eDb) {}
     ensurePages();
     applyRotation(state.rotation || 0, true);
     try { $('#smRotSeg button').removeClass('active'); $('#smRotSeg button[data-rot="' + (state.rotation||0) + '"]').addClass('active'); } catch(eR) {}

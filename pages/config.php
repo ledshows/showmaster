@@ -10,15 +10,16 @@
       <div class="sm-subtitle"></div>
     </div>
 
-    <!-- Notice / toast lives between the logo and the action buttons -->
-    <div class="sm-topNotice">
-      <div id="smToast" class="sm-toast sm-toastTop" style="display:none;"></div>
+    <!-- Notice sits between logo and Save -->
+    <div class="sm-toastInline" aria-live="polite">
+      <div id="smToast" class="sm-toast sm-toastInline" style="display:none;"></div>
     </div>
 
     <div class="sm-actions">
       <button class="buttons btn-success" id="smSave">Save</button>
       <button class="buttons btn-outline-light" id="smLoad">Load JSON</button>
       <button class="buttons btn-outline-light" id="smDownload" type="button">Download JSON</button>
+
       <div class="sm-upload">
         <div class="sm-uploadRow">
           <input class="sm-ip" id="smDeviceIp" placeholder="Showmaster IP (e.g. 192.168.1.50)" list="smScannedIps" />
@@ -28,69 +29,83 @@
         </div>
       </div>
 
-
       <!-- hidden file input used by the Load button -->
       <input id="smLoadFile" type="file" accept="application/json,.json" style="display:none;" />
     </div>
   </div>
 
-  <div class="sm-body">
+  <div class="sm-body sm-body3">
+    <!-- LEFT: CANVAS SETTINGS -->
+    <div class="sm-panel sm-canvasSettings">
+      <div class="sm-panelTitle">CANVAS SETTINGS</div>
 
-    <!-- Left: canvas settings -->
-    <div class="sm-leftPanel">
-      <div class="sm-panelTitle">Canvas settings</div>
-
-      <div class="sm-leftGroup">
-        <div class="sm-rotControl" title="Rotate builder canvas">
-          <span class="sm-rotLabel">Rotate</span>
-          <div class="sm-rotSeg" id="smRotSeg">
-            <button type="button" data-rot="0">0°</button>
-            <button type="button" data-rot="90">90°</button>
-            <button type="button" data-rot="180">180°</button>
-            <button type="button" data-rot="270">270°</button>
-          </div>
+      <div class="sm-field">
+        <label>Rotate</label>
+        <div class="sm-rotSeg" id="smRotSeg">
+          <button type="button" data-rot="0">0°</button>
+          <button type="button" data-rot="90">90°</button>
+          <button type="button" data-rot="180">180°</button>
+          <button type="button" data-rot="270">270°</button>
         </div>
+      </div>
 
-        <div class="sm-leftRow">
-          <span class="sm-toolLabel">Background</span>
-          <input id="smCanvasBg" type="color" value="#0b1020" title="Canvas background" />
-        </div>
+      <div class="sm-field">
+        <label>Background</label>
+        <input id="smCanvasBg" type="color" value="#0b1020" title="Canvas background" />
+      </div>
 
-        <div class="sm-leftRow">
-          <label class="sm-check"><span class="sm-checkText">Snap</span><input id="smGridToggle" type="checkbox" checked /></label>
-        </div>
+      <div class="sm-field">
+        <label>Snap</label>
+        <label class="sm-check sm-checkBig"><input id="smGridToggle" type="checkbox" checked /><span class="sm-checkText">Enable snap</span></label>
+      </div>
 
-        <div class="sm-leftRow sm-leftZoomRow">
-          <span class="sm-toolLabel">Zoom</span>
+      <div class="sm-field">
+        <label>Zoom</label>
+        <div class="sm-zoomRow">
           <input id="smZoom" class="sm-zoomSlider" type="range" min="100" max="250" step="25" value="200" />
           <span id="smZoomLabel" class="sm-zoomLabel">200%</span>
         </div>
+      </div>
 
-        <div class="sm-leftRow">
-          <span class="sm-toolLabel">Page height</span>
-          <input id="smPageHeight" type="number" class="sm-pageHeightInline" min="240" step="10" value="240" title="Page height" />
+      <div class="sm-field">
+        <label>Page height</label>
+        <input id="smPageHeight" type="number" min="240" step="10" value="240" />
+      </div>
+
+      <div class="sm-field">
+        <label>Screen timeout (s)</label>
+        <input id="smScreenTimeout" type="number" min="0" step="1" value="60" />
+      </div>
+
+      <div class="sm-field">
+        <label>Brightness</label>
+        <div class="sm-zoomRow">
+          <input id="smBrightness" class="sm-zoomSlider" type="range" min="0" max="100" step="1" value="100" />
+          <span id="smBrightnessLabel" class="sm-zoomLabel">100%</span>
         </div>
       </div>
     </div>
 
-    <!-- Middle: canvas -->
+    <!-- CENTER: CANVAS -->
     <div class="sm-canvasShell">
-      <div class="sm-pagesBar sm-pagesBarCenter">
+      <div class="sm-panelTitle sm-panelTitleCenter">CANVAS</div>
+
+      <div class="sm-pagesBar">
         <div id="smPageTabs" class="sm-pageTabs"></div>
         <button id="smAddPage" class="btn btn-outline-light btn-sm sm-addPage" type="button" title="Add page">+</button>
       </div>
 
-      <div class="sm-canvasCenter">
-        <div id="smCanvasViewport" class="sm-canvasViewport">
-          <div id="smCanvas" class="sm-canvas" aria-label="Showmaster canvas">
-            <div class="sm-grid"></div>
-          </div>
+      <div id="smCanvasViewport" class="sm-canvasViewport">
+        <div id="smCanvas" class="sm-canvas" aria-label="Showmaster canvas">
+          <div class="sm-grid"></div>
         </div>
       </div>
     </div>
 
-    <!-- Right: widget settings -->
+    <!-- RIGHT: BUTTON SETTINGS -->
     <div class="sm-props">
+      <div class="sm-panelTitle">BUTTON SETTINGS</div>
+
       <div class="sm-propsHeader">
         <div class="sm-propsRow sm-propsRowAdd">
           <button class="buttons btn-outline-light sm-addBtn" id="smAddAction" title="Add action button to canvas"><span class="smPlus">+</span><span class="smBtnText">Action</span></button>
@@ -117,6 +132,49 @@
           <input id="smLabel" maxlength="40" />
         </div>
 
+        <!-- Command settings directly under label -->
+        <div id="smActionFields">
+          <div class="sm-field">
+            <label>Command</label>
+            <div class="sm-commandStack">
+              <input id="smCommandDisplay" placeholder="Choose a command..." readonly />
+              <button class="buttons btn-outline-light" id="smPickCommand" type="button">Choose…</button>
+            </div>
+          </div>
+
+          <div class="sm-field sm-tabOnly" style="display:none">
+            <label>Target Page</label>
+            <select id="smTargetPage"></select>
+          </div>
+
+          <input type="hidden" id="smCommand" />
+          <input type="hidden" id="smCommandArgsJson" />
+
+          <div class="sm-field">
+            <label>Icon</label>
+            <input id="smIconValue" placeholder="(none)" readonly />
+          </div>
+
+          <div class="sm-field">
+            <label>Select icon</label>
+            <button class="buttons btn-outline-light sm-fullBtn" id="smPickIcon" type="button">Select icon</button>
+          </div>
+
+          <div class="sm-field">
+            <label>Icon size</label>
+            <input id="smIconSize" type="number" min="8" max="64" step="1" />
+          </div>
+
+          <button class="buttons btn-outline-light sm-fullBtn" id="smClearIcon" type="button">Clear</button>
+        </div>
+
+        <div id="smStatusFields">
+          <div class="sm-field">
+            <label>Source</label>
+            <select id="smSource"></select>
+          </div>
+        </div>
+
         <div class="sm-row2">
           <div class="sm-field">
             <label>X</label>
@@ -141,14 +199,13 @@
 
         <div class="sm-divider"></div>
 
-
         <div class="sm-colorRow sm-colorRow3">
           <div class="sm-field">
             <label>Bg</label>
             <input id="smBg" type="color" />
           </div>
           <div class="sm-field">
-            <label>Text</label>
+            <label>Text/Icon</label>
             <input id="smFg" type="color" />
           </div>
           <div class="sm-field">
@@ -171,51 +228,7 @@
           <label>Corner radius</label>
           <input id="smRadius" type="number" min="0" max="30" step="1" />
         </div>
-
-
-	<div id="smActionFields">
-          <div class="sm-field">
-            <label>Command</label>
-            <div class="sm-commandStack">
-              <input id="smCommandDisplay" placeholder="Choose a command..." readonly />
-              <button class="buttons btn-outline-light" id="smPickCommand" type="button">Choose…</button>
-            </div>
-          </div>
-
-          <div class="sm-field sm-tabOnly" style="display:none">
-            <label>Target Page</label>
-            <select id="smTargetPage"></select>
-          </div>
-
-          <input type="hidden" id="smCommand" />
-          <input type="hidden" id="smCommandArgsJson" />
-
-          <div class="sm-field">
-            <label>Icon</label>
-            <div class="sm-iconRowTop">
-              <input id="smIconValue" placeholder="(none)" readonly />
-              <button class="buttons btn-outline-light" id="smPickIcon" type="button">Select…</button>
-            </div>
-            <div class="sm-iconRowBottom">
-              <input id="smIconSize" type="number" min="8" max="64" step="1" />
-              <button class="buttons btn-outline-light" id="smClearIcon" type="button">Clear</button>
-            </div>
-          </div>
-
-
-</div>
-
-        <div id="smStatusFields">
-          <div class="sm-field">
-            <label>Source</label>
-            <select id="smSource"></select>
-          </div>
-        </div>
-
-        <!-- widget id removed -->
       </div>
-
-      <!-- footer note removed -->
 
       <!-- Debug toggle moved to bottom-right of the properties panel -->
       <div class="sm-propsDebugBottom">

@@ -108,32 +108,6 @@
 .sm-subtitle{font-size:12px; color:var(--sm-muted);}
 
 .sm-actions{display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;}
-
-/* Uniform header control heights */
-.sm-wrap .buttons{
-  height:34px;
-  display:inline-flex;
-  align-items:center;
-}
-.sm-ip{height:34px;}
-
-/* Toast between logo and actions */
-.sm-topNotice{
-  flex:1;
-  min-width:160px;
-  display:flex;
-  align-items:center;
-  justify-content:flex-start;
-}
-.sm-toast.sm-toastTop{
-  border-color: rgba(109,44,255,0.55);
-  background: rgba(109,44,255,0.22);
-  color: rgba(255,255,255,0.95);
-  font-weight:800;
-  font-size:13px;
-  padding:10px 16px;
-  max-width: 520px;
-}
 .sm-upload{display:flex; flex-direction:column; align-items:flex-end; gap:8px; position:relative;}
 .sm-uploadRow{display:flex; align-items:center; gap:8px;}
 
@@ -213,8 +187,8 @@
 .sm-wrap .buttons{
   border-radius:10px;
   font-size:12px;
-  padding:0 12px;
-  line-height:34px;
+  padding:7px 12px;
+  line-height:1.1;
 }
 .sm-wrap .btn-outline-light{
   color:var(--sm-text);
@@ -250,44 +224,38 @@
 
 .sm-body{
   display:grid;
-  grid-template-columns: 280px 1fr 320px;
   gap:12px;
   margin-top:12px;
+}
+
+/* 3-column builder layout: Canvas settings | Canvas | Button settings */
+.sm-body3{
+  grid-template-columns: 280px 1fr 360px;
   align-items:start;
 }
 
-/* Left: canvas settings */
-.sm-leftPanel{
+.sm-panelTitle{
+  font-size:12px;
+  letter-spacing:0.10em;
+  text-transform:uppercase;
+  opacity:0.88;
+  margin-bottom:30px;
+}
+.sm-panelTitleCenter{ text-align:center; }
+
+.sm-panel{
   background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
   border:1px solid var(--sm-border);
   border-radius:16px;
   padding:12px;
 }
-.sm-panelTitle{
-  font-size:12px;
-  font-weight:900;
-  letter-spacing:0.08em;
-  text-transform:uppercase;
-  opacity:0.85;
-  margin-bottom:10px;
-}
-.sm-leftGroup{display:flex;flex-direction:column;gap:12px;}
-.sm-leftRow{display:flex;align-items:center;justify-content:space-between;gap:10px;}
-.sm-leftZoomRow{flex-wrap:wrap;justify-content:flex-start;}
-.sm-leftZoomRow .sm-toolLabel{min-width:48px;}
-.sm-leftZoomRow #smZoom{flex:1 1 180px; max-width:220px;}
-
-/* Middle: center the viewport */
-.sm-canvasCenter{display:flex;justify-content:center;}
-.sm-pagesBarCenter{justify-content:center;}
-#smCanvasViewport{margin:0 auto;}
 
 .sm-canvasShell{
   background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
   border:1px solid var(--sm-border);
   border-radius:16px;
   padding:12px;
-  min-width: 0;
+  min-width: 360px;
 }
 .sm-canvasTitle{font-size:12px; color:var(--sm-muted); margin-bottom:20px; margin-top:20px;}
 
@@ -486,9 +454,8 @@
 
 @media (max-width: 1100px){
   .sm-body{grid-template-columns: 1fr;}
-  .sm-leftPanel{order:1;}
-  .sm-canvasShell{order:2;}
-  .sm-props{order:3;}
+  .sm-props{order:2;}
+  .sm-canvasShell{min-width:auto;}
 }
 
 /* Global + icon picker additions */
@@ -887,3 +854,63 @@
 
 .sm-remoteCanvas .sm-widget{cursor:pointer; user-select:none;}
 .sm-remoteCanvas .sm-widget:active{filter:brightness(1.08);}
+
+/* ---- Builder layout & form polish (requested) ---- */
+.sm-canvasShell{display:flex; flex-direction:column; align-items:center;}
+.sm-canvasViewport{display:flex; justify-content:center; align-items:flex-start; width:100%; overflow:auto;}
+
+.sm-toastInline{display:flex; align-items:center; justify-content:center; min-width:220px;}
+.sm-toast.sm-toastInline{
+  border-color: rgba(109,44,255,0.55);
+  background: rgba(109,44,255,0.20);
+  color: rgba(255,255,255,0.95);
+  font-weight:800;
+}
+
+/* Make header controls same height */
+.sm-topbar .buttons,
+.sm-topbar .sm-ip{
+  height:34px;
+}
+.sm-topbar .buttons{display:inline-flex; align-items:center; justify-content:center;}
+.sm-ip{box-sizing:border-box;}
+
+/* Titles spacing */
+.sm-panelTitle{margin-bottom:30px;}
+
+/* Copy/Copy to page/Delete: center text */
+.sm-propsRowOps .buttons{display:flex; align-items:center; justify-content:center; text-align:center;}
+
+/* Full width utility */
+.sm-fullBtn{width:100%;}
+
+/* Inputs: unify look across left + right panels */
+.sm-field input, .sm-field select{
+  height:38px;
+  border-radius:12px;
+}
+
+/* Color pickers should match button settings style (full width) */
+.sm-field input[type="color"]{
+  width:100% !important;
+  height:38px !important;
+  padding:6px !important;
+  border-radius:12px !important;
+  border:1px solid rgba(255,255,255,0.18) !important;
+  background:rgba(0,0,0,0.22) !important;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.35);
+}
+.sm-field input[type="color"]::-webkit-color-swatch-wrapper{padding:0;}
+.sm-field input[type="color"]::-webkit-color-swatch{border:none; border-radius:10px;}
+
+/* Zoom rows (slider + % label) */
+.sm-zoomRow{display:flex; align-items:center; gap:12px;}
+.sm-zoomRow .sm-zoomSlider{flex:1;}
+.sm-zoomRow .sm-zoomLabel{min-width:56px; text-align:right; font-weight:800;}
+
+@media (max-width: 1100px){
+  .sm-body3{grid-template-columns:1fr;}
+  .sm-canvasSettings{order:1;}
+  .sm-canvasShell{order:2;}
+  .sm-props{order:3;}
+}
