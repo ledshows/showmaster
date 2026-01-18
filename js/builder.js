@@ -949,7 +949,7 @@ function makeInteractive($el, w) {
     setSelection(w.id, true);
   }
 
-
+  // Quick preset: seek current sequence forward by 10 seconds (handled by remote page)
   function addSeek10() {
     ensurePages();
     var pg = currentPage();

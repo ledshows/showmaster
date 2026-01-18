@@ -109,7 +109,7 @@
       <div class="sm-propsHeader">
         <div class="sm-propsRow sm-propsRowAdd">
           <button class="buttons btn-outline-light sm-addBtn" id="smAddAction" title="Add action button to canvas"><span class="smPlus">+</span><span class="smBtnText">Action</span></button>
-          <button class="buttons btn-outline-light sm-addBtn" id="smAddSeek10" title="Add +10s seek button"><span class="smPlus">+</span><span class="smBtnText">+10s</span></button>
+          <button class="buttons btn-outline-light sm-addBtn" id="smAddSeek10" title="Add a +10s seek button to canvas"><span class="smPlus">+</span><span class="smBtnText">10s</span></button>
           <button class="buttons btn-outline-light sm-addBtn" id="smAddStatus" title="Add status button to canvas"><span class="smPlus">+</span><span class="smBtnText">Status</span></button>
           <button class="buttons btn-outline-light sm-addBtn" id="smAddTab" title="Add tab button to canvas"><span class="smPlus">+</span><span class="smBtnText">Tab</span></button>
         </div>
