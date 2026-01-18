@@ -914,3 +914,40 @@
   .sm-canvasShell{order:2;}
   .sm-props{order:3;}
 }
+
+/* --- Showmaster Remote: lock overlay --- */
+.sm-lockOverlay{
+  position: fixed;
+  left:0; top:0; right:0; bottom:0;
+  z-index: 9999;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(4px);
+}
+.sm-lockCard{
+  min-width: 260px;
+  max-width: 92vw;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(12,16,26,0.92);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.45);
+  text-align:center;
+}
+.sm-lockTitle{
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: #eaf2ff;
+}
+.sm-unlockBtn{
+  display:inline-block;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.10);
+  color: #eaf2ff;
+}
+.sm-unlockBtn:hover{ background: rgba(255,255,255,0.14); }

@@ -968,6 +968,27 @@ function makeInteractive($el, w) {
     (pg.widgets || (pg.widgets=[])).push(w);
     setSelection(w.id, true);
   }
+
+  function addLock() {
+    ensurePages();
+    var pg = currentPage();
+    var w = normalizeWidget({
+      id: uid("action"),
+      type: "action",
+      x: Math.round((DEVICE_W - 120) / 2), y: Math.round((DEVICE_H - 44) / 2),
+      w: 120, h: 44,
+      label: "Lock",
+      icon: "lock",
+      iconSize: 24,
+      textSize: 14,
+      // Local lock commands (handled locally on the Showmaster / Remote page)
+      command: "lockscreen",
+      args: {}
+    });
+    (pg.widgets || (pg.widgets=[])).push(w);
+    setSelection(w.id, true);
+  }
+
   function addStatus() {
     ensurePages();
     var pg = currentPage();
@@ -1214,6 +1235,7 @@ function makeInteractive($el, w) {
 
     $("#smAddAction").off("click").on("click", function(e){ e.preventDefault(); addAction(); });
     $("#smAddSeek10").off("click").on("click", function(e){ e.preventDefault(); addSeek10(); });
+    $("#smAddLock").off("click").on("click", function(e){ e.preventDefault(); addLock(); });
     $("#smAddStatus").off("click").on("click", function(e){ e.preventDefault(); addStatus(); });
     $("#smAddTab").off("click").on("click", function(e){ e.preventDefault(); addTab(); });
     $("#smAddPage").off("click").on("click", function(e){ e.preventDefault(); addPage(); });

@@ -116,22 +116,11 @@
     return name || '';
   }
 
-  function stopNowAll(){
-    // Stops playlist or sequence like the Status/Control 'Stop Now' button.
-    // Use FPP Command endpoint; this is safest across modes.
-    return jQuery.ajax({ url: '/api/command/Stop%20Now', method: 'GET', cache: false, timeout: 2500 })
+  function stopCurrentSequence(){
+    return jQuery.ajax({ url: '/api/sequence/current/stop', method: 'GET', cache: false, timeout: 2500 })
       .then(null, function(){
-        return jQuery.ajax({ url: '/api/command/Stop%20Now/', method: 'GET', cache: false, timeout: 2500 });
-      }).then(null, function(){
-        // Legacy fallback (may or may not exist depending on version)
-        return jQuery.ajax({ url: '/fppjson.php?command=stopNow', method: 'GET', cache: false, timeout: 2500 });
+        return jQuery.ajax({ url: '/fppjson.php?command=stopSequence', method: 'GET', cache: false, timeout: 2500 });
       });
-  }
-
-  function delayMs(ms){
-    var d = jQuery.Deferred();
-    setTimeout(function(){ d.resolve(); }, ms);
-    return d.promise();
   }
 
   function startSequenceAt(name, startSec){
@@ -166,10 +155,7 @@
       target = Math.floor(target);
 
       // Stop once, then start at target.
-      return stopNowAll().then(function(){
-        // Give fppd a moment to fully stop before starting at offset.
-        return delayMs(250);
-      }).then(function(){
+      return stopCurrentSequence().then(function(){
         return startSequenceAt(seq, target);
       });
     }).always(function(){
@@ -274,7 +260,8 @@
     deviceW: 320,
     deviceH: 240,
     scale: 1,
-    zoomPercent: 200
+    zoomPercent: 200,
+    locked: false
   };
 
   function currentPage(){
@@ -377,20 +364,23 @@
           $el.on('click', function(e){
             e.preventDefault();
             if (!w.command) { return; }
-            // Special internal command: seek current sequence by delta seconds.
-            if (w.command === '__SHOWMASTER_SEQ_SEEK__') {
-              var d = 10;
-              try { if (w.args && typeof w.args.delta !== 'undefined') d = parseInt(w.args.delta, 10); } catch(exD) {}
-              doSeek(isFinite(d) ? d : 10);
+            // Local lock (no FPP call)
+            if (isLockCommand(w.command)) {
+              toggleLocked();
               return;
             }
-            // Best-effort FPP command execution
-            jQuery.ajax({
-              url: 'api/command',
-              method: 'POST',
-              contentType: 'application/json',
-              data: JSON.stringify({ command: w.command, args: w.args || {} })
-            });
+            // When locked, ignore all other actions
+            if (state.locked) { return; }
+
+            // Special: seek forward/back in the currently playing sequence
+            if (String(w.command) === '__SHOWMASTER_SEQ_SEEK__') {
+              seekBySeconds((w.args && typeof w.args.delta !== 'undefined') ? w.args.delta : 10);
+              return;
+            }
+
+            // Normal: send FPP command
+            sendFppCommand(w.command, w.args || {});
+
           });
         }
 
@@ -513,15 +503,146 @@
     pollTimer = setInterval(poll, 1000);
   }
 
+
+
+  // ---- Local lock (no FPP call) ----
+  function isLockCommand(cmd){
+    cmd = (cmd == null) ? '' : String(cmd);
+    cmd = cmd.replace(/\s+/g, '').toLowerCase();
+    return (cmd === 'screen.lock' || cmd === 'lockscreen' || cmd === 'lock-screen' || cmd === 'lock');
+  }
+
+  function ensureLockOverlay(){
+    if (jQuery('#smRLockOverlay').length) return;
+    var $ov = jQuery("<div id=\'smRLockOverlay\' class=\'sm-lockOverlay\' style=\'display:none;\'>" +
+      "<div class='sm-lockCard'>" +
+        "<div class='sm-lockTitle'><i class='fa fa-lock'></i> Screen locked</div>" +
+        "<button type='button' id='smRUnlockBtn' class='sm-unlockBtn'>Unlock</button>" +
+      "</div>" +
+    "</div>");
+    jQuery('body').append($ov);
+    jQuery('#smRUnlockBtn').on('click', function(e){ e.preventDefault(); setLocked(false); });
+    // also allow tap anywhere on overlay to unlock
+    $ov.on('click', function(e){ e.preventDefault(); setLocked(false); });
+  }
+
+  function setLocked(on){
+    ensureLockOverlay();
+    state.locked = !!on;
+    if (state.locked) jQuery('#smRLockOverlay').show();
+    else jQuery('#smRLockOverlay').hide();
+  }
+
+  function toggleLocked(){ setLocked(!state.locked); }
+
+  // ---- FPP command helper ----
+  function argsToArray(args){
+    if (args == null) return [];
+    if (Array.isArray(args)) return args.map(function(v){ return String(v); });
+    if (typeof args === 'string' || typeof args === 'number' || typeof args === 'boolean') return [String(args)];
+    if (typeof args === 'object') {
+      var out = [];
+      try {
+        var ks = Object.keys(args);
+        ks.sort();
+        for (var i=0;i<ks.length;i++) {
+          var k = ks[i];
+          out.push(String(args[k]));
+        }
+      } catch(e) {}
+      return out;
+    }
+    return [];
+  }
+
+  function sendFppCommand(cmd, args){
+    cmd = (cmd == null) ? '' : String(cmd);
+    if (!cmd) return;
+    var url = 'api/command/' + encodeURIComponent(cmd);
+    var payload = JSON.stringify(argsToArray(args));
+    return jQuery.ajax({
+      url: url,
+      method: 'POST',
+      contentType: 'application/json',
+      data: payload
+    });
+  }
+
+  // ---- Seek +10s implementation (Stop Now -> start sequence at second) ----
+  function getElapsedSecondsFromStatus(st){
+    if (!st) return 0;
+    var cand = null;
+    // common fields
+    if (typeof st.seconds_elapsed !== 'undefined') cand = st.seconds_elapsed;
+    else if (typeof st.elapsed !== 'undefined') cand = st.elapsed;
+    else if (typeof st.time_elapsed !== 'undefined') cand = st.time_elapsed;
+    else if (st.status && typeof st.status.seconds_elapsed !== 'undefined') cand = st.status.seconds_elapsed;
+
+    if (typeof cand === 'string') {
+      // try MM:SS or HH:MM:SS
+      var m = cand.match(/^(\d+):(\d{2})(?::(\d{2}))?$/);
+      if (m) {
+        if (m[3] != null) {
+          return parseInt(m[1],10)*3600 + parseInt(m[2],10)*60 + parseInt(m[3],10);
+        }
+        return parseInt(m[1],10)*60 + parseInt(m[2],10);
+      }
+      // try '123s'
+      var ms = cand.match(/(\d+(?:\.\d+)?)\s*s/i);
+      if (ms) return Math.floor(parseFloat(ms[1]));
+    }
+    if (typeof cand === 'number') {
+      // if it's ms
+      if (cand > 1000*60) return Math.floor(cand/1000);
+      return Math.floor(cand);
+    }
+    return 0;
+  }
+
+  function getCurrentSequenceName(st){
+    if (!st) return '';
+    // FPP status uses current_sequence
+    if (st.current_sequence) return String(st.current_sequence);
+    // some builds: st.current_playlist.current_sequence
+    try {
+      if (st.current_playlist && st.current_playlist.current_sequence) return String(st.current_playlist.current_sequence);
+    } catch(e) {}
+    // fallback
+    return '';
+  }
+
+  function seekBySeconds(delta){
+    delta = parseInt(delta,10);
+    if (!isFinite(delta)) delta = 10;
+
+    // single-shot: read status once, then Stop Now, then start sequence at target second
+    return jQuery.getJSON('api/fppd/status').then(function(st){
+      var seq = getCurrentSequenceName(st);
+      var cur = getElapsedSecondsFromStatus(st);
+      var target = cur + delta;
+      if (target < 0) target = 0;
+      try { console.log('Showmaster seek:', seq, 'cur=', cur, 'target=', target); } catch(e) {}
+
+      if (!seq) return;
+      // Stop everything first (playlist/schedule)
+      return sendFppCommand('Stop Now', []).always(function(){
+        // small delay so fppd can settle
+        return jQuery.Deferred(function(d){ setTimeout(function(){ d.resolve(); }, 250); }).promise();
+      }).then(function(){
+        // /api/sequence/:name/start/:sec
+        var url = 'api/sequence/' + encodeURIComponent(seq) + '/start/' + encodeURIComponent(String(target));
+        return jQuery.ajax({ url: url, method: 'GET' });
+      });
+    });
+  }
   function clamp(n, a, b){ n = parseInt(n,10); if (isNaN(n)) n = a; return Math.max(a, Math.min(b, n)); }
 
   function setZoom(p){
     state.zoomPercent = clamp(p, 100, 300);
     try { window.localStorage.setItem('showmaster_remote_zoom', String(state.zoomPercent)); } catch(e) {}
     try { jQuery('#smRZoomLabel').text(state.zoomPercent + '%'); } catch(e2) {}
-    renderCanvas();
-    // after re-render, refresh status text
-    if (lastStatus) updateStatusWidgets();
+    // only update transform (no full re-render, keeps handlers stable)
+    computeScaleAndTransform();
   }
 
   function boot(){
