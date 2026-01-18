@@ -1,6 +1,8 @@
 <?php
 // Showmaster Builder main page
 ?>
+<!-- Font Awesome (bundled) so icon picker matches what the ESP32 firmware supports -->
+<link rel="stylesheet" href="plugin.php?plugin=showmaster&file=vendor/fa7/css/all.min.css&nopage=1" />
 <link rel="stylesheet" href="plugin.php?plugin=showmaster&file=css/style.css&nopage=1" />
 
 <div class="sm-wrap">
