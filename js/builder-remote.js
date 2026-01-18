@@ -68,90 +68,171 @@
     return icon + '<span>' + esc(label2) + '</span>';
   }
 
-  // ---- Special actions (not standard FPP command presets) ----
-  function statusSeqName(st){
-    if (!st) return '';
-    var v = st.current_sequence;
-    if (typeof v === 'string') return v;
-    if (v && typeof v.sequence === 'string') return v.sequence;
-    if (v && typeof v.name === 'string') return v.name;
-    return '';
+  // ---------------------------
+  // Special actions (reserved command tokens)
+  // ---------------------------
+  var lastStatus = null;
+  function ensureDebug(){
+    if (jQuery('#smRDebug').length) return;
+    var $d = jQuery("<div id='smRDebug'></div>");
+    $d.css({
+      position:'fixed',
+      left:'12px',
+      bottom:'12px',
+      padding:'6px 10px',
+      border:'1px solid rgba(255,255,255,0.18)',
+      borderRadius:'10px',
+      background:'rgba(0,0,0,0.55)',
+      color:'#eaf2ff',
+      fontSize:'12px',
+      zIndex:99999,
+      maxWidth:'calc(100vw - 24px)',
+      overflow:'hidden',
+      textOverflow:'ellipsis',
+      whiteSpace:'nowrap'
+    });
+    $d.text('');
+    jQuery('body').append($d);
+  }
+  function debug(msg){
+    ensureDebug();
+    try { jQuery('#smRDebug').text(String(msg || '')); } catch(e) {}
   }
 
-  function statusSeqPosSeconds(st){
-    if (!st) return NaN;
-    var cands = [
-      st.sequencePosition,
-      st.sequence_position,
-      st.sequencePos,
-      st.sequence_seconds,
-      st.secondsElapsed,
-      st.seconds_elapsed,
-      st.elapsed,
-      st.elapsed_seconds,
-      st.elapsedSeconds
-    ];
-    for (var i=0;i<cands.length;i++) {
-      var v = cands[i];
+  function findFirst(obj, pred){
+    // Breadth-first search to avoid deep recursion issues.
+    var q = [{ v: obj, k: '' }];
+    var seen = [];
+    while (q.length) {
+      var it = q.shift();
+      var v = it.v;
       if (v == null) continue;
-      if (typeof v === 'number') return v;
-      if (typeof v === 'string') {
-        var n = parseFloat(v);
-        if (isFinite(n)) return n;
+      // avoid cycles
+      if (typeof v === 'object') {
+        for (var si=0;si<seen.length;si++) if (seen[si] === v) { v = null; break; }
+        if (v == null) continue;
+        seen.push(v);
+      }
+
+      try {
+        if (pred(it.k, v)) return v;
+      } catch(e) {}
+
+      if (typeof v === 'object') {
+        if (Array.isArray(v)) {
+          for (var i=0;i<v.length;i++) q.push({ k: it.k + '[' + i + ']', v: v[i] });
+        } else {
+          for (var k in v) if (Object.prototype.hasOwnProperty.call(v, k)) {
+            q.push({ k: k, v: v[k] });
+          }
+        }
       }
     }
-    // Some builds nest it under current_playlist
-    try {
-      var cp = st.current_playlist || {};
-      var v2 = cp.sequencePosition || cp.sequence_position || cp.secondsElapsed || cp.seconds_elapsed || cp.elapsed || cp.elapsed_seconds || cp.elapsedSeconds;
-      if (typeof v2 === 'number') return v2;
-      if (typeof v2 === 'string') {
-        var n2 = parseFloat(v2);
-        if (isFinite(n2)) return n2;
+    return null;
+  }
+
+  function parseHMS(str){
+    // "HH:MM:SS" or "MM:SS"
+    if (!str || typeof str !== 'string') return NaN;
+    var parts = str.trim().split(':');
+    if (parts.length < 2 || parts.length > 3) return NaN;
+    var h=0, m=0, s=0;
+    if (parts.length === 2) {
+      m = parseInt(parts[0],10); s = parseFloat(parts[1]);
+    } else {
+      h = parseInt(parts[0],10); m = parseInt(parts[1],10); s = parseFloat(parts[2]);
+    }
+    if (!isFinite(h) || !isFinite(m) || !isFinite(s)) return NaN;
+    return (h*3600) + (m*60) + s;
+  }
+
+  function extractSeqName(st){
+    if (!st) return '';
+    // Prefer explicit current_sequence keys
+    var v1 = null;
+    try { v1 = st.current_sequence; } catch(e1) {}
+    if (typeof v1 === 'string' && v1) return v1;
+
+    // Search for first string that looks like a sequence file
+    var found = findFirst(st, function(k,v){
+      if (typeof v !== 'string') return false;
+      var s = v.toLowerCase();
+      if (s.indexOf('.fseq') !== -1) return true;
+      return false;
+    });
+    return (typeof found === 'string') ? found : '';
+  }
+
+  function extractElapsedSeconds(st){
+    if (!st) return NaN;
+    // Prefer numeric fields whose key indicates elapsed/position
+    var foundNum = findFirst(st, function(k,v){
+      if (!k) return false;
+      var kk = String(k).toLowerCase();
+      if (kk.indexOf('elapsed')===-1 && kk.indexOf('position')===-1 && kk.indexOf('seconds')===-1 && kk.indexOf('time')===-1) return false;
+      if (typeof v === 'number' && isFinite(v)) return true;
+      if (typeof v === 'string') {
+        var n = parseFloat(v);
+        if (isFinite(n) && v.trim() !== '') return true;
+        var hms = parseHMS(v);
+        if (isFinite(hms)) return true;
       }
-    } catch(e) {}
+      return false;
+    });
+    if (typeof foundNum === 'number') return foundNum;
+    if (typeof foundNum === 'string') {
+      var n2 = parseFloat(foundNum);
+      if (isFinite(n2)) return n2;
+      var h2 = parseHMS(foundNum);
+      if (isFinite(h2)) return h2;
+    }
     return NaN;
+  }
+
+  function fetchAnyStatus(cb){
+    // Best-effort: try new + legacy endpoints.
+    var tries = [
+      '/api/system/status',
+      '/api/fppd/status',
+      'api/system/status',
+      'api/fppd/status',
+      '/fppjson.php?command=getFPPstatus'
+    ];
+    var idx = 0;
+    function next(){
+      if (idx >= tries.length) return cb(null);
+      var url = tries[idx++];
+      jQuery.getJSON(url).done(function(js){ cb(js); }).fail(function(){ next(); });
+    }
+    next();
   }
 
   function doSequenceSeekDelta(deltaSeconds){
     deltaSeconds = parseInt(deltaSeconds, 10);
     if (!isFinite(deltaSeconds) || deltaSeconds === 0) return;
 
-    // Ensure we have status first
-    var d = jQuery.Deferred();
-    function haveStatus(){
-      if (!lastStatus) return false;
-      var name = statusSeqName(lastStatus);
-      var pos = statusSeqPosSeconds(lastStatus);
-      return !!name && isFinite(pos);
-    }
-    function fetchStatus(){
-      // FPP 5+ prefers /api/system/status, older builds expose /api/fppd/status
-      jQuery.getJSON('/api/system/status').done(function(js){ lastStatus = js; d.resolve(); }).fail(function(){
-        jQuery.getJSON('/api/fppd/status').done(function(js2){ lastStatus = js2; d.resolve(); }).fail(function(){
-          // relative fallbacks in case of odd base paths
-          jQuery.getJSON('api/system/status').done(function(js3){ lastStatus = js3; d.resolve(); }).fail(function(){
-            jQuery.getJSON('api/fppd/status').done(function(js4){ lastStatus = js4; d.resolve(); }).fail(function(){ d.resolve(); });
-          });
-        });
-      });
-    }
-    if (haveStatus()) d.resolve(); else fetchStatus();
+    debug('Seeking +'+deltaSeconds+'s...');
 
-    d.done(function(){
-      var seq = statusSeqName(lastStatus);
-      var cur = statusSeqPosSeconds(lastStatus);
-      if (!seq || !isFinite(cur)) return;
-      var next = Math.max(0, Math.floor(cur + deltaSeconds));
-      // Seek by restarting the current sequence at new second.
-      // Documented: GET /api/sequence/:SequenceName/start/:startSecond
-      // NOTE: builder-remote runs under /plugin/showmaster/, so relative "api/..." would hit
-      // /plugin/showmaster/api/... (wrong). We prefer absolute /api/... and fall back.
-      var urlAbs = '/api/sequence/' + encodeURIComponent(seq) + '/start/' + encodeURIComponent(String(next));
-      var urlRel = 'api/sequence/' + encodeURIComponent(seq) + '/start/' + encodeURIComponent(String(next));
-      jQuery.ajax({ url: urlAbs, method: 'GET' }).fail(function(){
-        jQuery.ajax({ url: urlRel, method: 'GET' });
-      });
+    fetchAnyStatus(function(st){
+      lastStatus = st;
+      var seq = extractSeqName(st);
+      var cur = extractElapsedSeconds(st);
+      if (!seq) { debug('Seek failed: no current sequence in status'); return; }
+      if (!isFinite(cur)) { debug('Seek failed: no elapsed seconds in status'); return; }
+
+      var nextSec = Math.max(0, Math.floor(cur + deltaSeconds));
+      debug('Seq: '+seq+' @ '+Math.floor(cur)+' -> '+nextSec);
+
+      // Official endpoint: GET /api/sequence/:SequenceName/start/:startSecond
+      // (FPP 5.0 migration doc lists it as COMPLETE.)
+      // If this fails, we show the error in the debug strip.
+      var urlAbs = '/api/sequence/' + encodeURIComponent(seq) + '/start/' + encodeURIComponent(String(nextSec));
+      jQuery.ajax({ url: urlAbs, method: 'GET' })
+        .done(function(){ debug('Seek OK: '+nextSec+'s'); })
+        .fail(function(xhr){
+          var code = (xhr && xhr.status) ? xhr.status : '?';
+          debug('Seek HTTP '+code+' (check FPP apihelp.php)');
+        });
     });
   }
 
@@ -308,6 +389,7 @@
               doSequenceSeekDelta(d);
               return;
             }
+
             // Best-effort FPP command execution
             jQuery.ajax({
               url: 'api/command',

@@ -949,16 +949,16 @@ function makeInteractive($el, w) {
     setSelection(w.id, true);
   }
 
-  // Adds a pre-configured action that seeks the currently playing sequence forward by 10 seconds.
-  // Stored as a special command token so the runtime (Showmaster firmware / remote page) can handle it.
+  // Add a special action: skip the currently playing sequence forward by 10 seconds.
+  // Exported as a normal action widget, but with a reserved command token.
   function addSeek10() {
     ensurePages();
     var pg = currentPage();
     var w = normalizeWidget({
       id: uid("action"),
       type: "action",
-      x: Math.round((DEVICE_W - 120) / 2), y: Math.round((DEVICE_H - 44) / 2),
-      w: 120, h: 44,
+      x: Math.round((DEVICE_W - 110) / 2), y: Math.round((DEVICE_H - 44) / 2),
+      w: 110, h: 44,
       label: "+10s",
       icon: "forward",
       iconSize: 24,

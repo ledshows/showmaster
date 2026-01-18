@@ -21,7 +21,7 @@
   color:#fff !important;
 }
 
-#smAddAction,#smAddStatus,#smAddTab{
+#smAddAction,#smAddSeek10,#smAddStatus,#smAddTab{
   background: var(--sm-galaxy) !important;
   border: 1px solid rgba(255,255,255,0.14) !important;
   color:#fff !important;
@@ -794,7 +794,7 @@
 /* --- Layout fix: Action/Status/Tab + Ops buttons --- */
 .sm-propsHeader .sm-propsRowAdd{
   display:grid;
-  grid-template-columns:repeat(4, minmax(0, 1fr));
+  grid-template-columns:repeat(3, minmax(0, 1fr));
   gap:6px;
   padding:2px;
   width:100%;
