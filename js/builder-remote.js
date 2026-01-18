@@ -116,11 +116,22 @@
     return name || '';
   }
 
-  function stopCurrentSequence(){
-    return jQuery.ajax({ url: '/api/sequence/current/stop', method: 'GET', cache: false, timeout: 2500 })
+  function stopNowAll(){
+    // Stops playlist or sequence like the Status/Control 'Stop Now' button.
+    // Use FPP Command endpoint; this is safest across modes.
+    return jQuery.ajax({ url: '/api/command/Stop%20Now', method: 'GET', cache: false, timeout: 2500 })
       .then(null, function(){
-        return jQuery.ajax({ url: '/fppjson.php?command=stopSequence', method: 'GET', cache: false, timeout: 2500 });
+        return jQuery.ajax({ url: '/api/command/Stop%20Now/', method: 'GET', cache: false, timeout: 2500 });
+      }).then(null, function(){
+        // Legacy fallback (may or may not exist depending on version)
+        return jQuery.ajax({ url: '/fppjson.php?command=stopNow', method: 'GET', cache: false, timeout: 2500 });
       });
+  }
+
+  function delayMs(ms){
+    var d = jQuery.Deferred();
+    setTimeout(function(){ d.resolve(); }, ms);
+    return d.promise();
   }
 
   function startSequenceAt(name, startSec){
@@ -155,7 +166,10 @@
       target = Math.floor(target);
 
       // Stop once, then start at target.
-      return stopCurrentSequence().then(function(){
+      return stopNowAll().then(function(){
+        // Give fppd a moment to fully stop before starting at offset.
+        return delayMs(250);
+      }).then(function(){
         return startSequenceAt(seq, target);
       });
     }).always(function(){
