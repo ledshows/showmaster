@@ -334,7 +334,17 @@
           });
       }
 
-      stopPlaylistThen(callRest);
+      function stopAnyPlaybackThen(cb){
+        stopPlaylistThen(function(){
+          // Also stop any current sequence so the start/seek actually takes effect
+          jQuery.ajax({ url: '/api/sequence/current/stop', method:'GET' })
+            .always(function(){
+              setTimeout(cb, 150);
+            });
+        });
+      }
+
+      stopAnyPlaybackThen(callRest);
     });
   }
 
