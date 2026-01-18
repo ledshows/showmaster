@@ -150,28 +150,51 @@
 
   function extractSeqName(st){
     if (!st) return '';
-    // Prefer explicit current_sequence keys
-    var v1 = null;
-    try { v1 = st.current_sequence; } catch(e1) {}
-    if (typeof v1 === 'string' && v1) return v1;
+    // Preferred: official keys used by /api/system/status and /api/fppd/status
+    try {
+      if (typeof st.current_sequence === 'string' && st.current_sequence) return st.current_sequence;
+      if (st.current_playlist && typeof st.current_playlist.sequence === 'string' && st.current_playlist.sequence) return st.current_playlist.sequence;
+      if (typeof st.sequence === 'string' && st.sequence) return st.sequence;
+    } catch(e1) {}
 
-    // Search for first string that looks like a sequence file
+    // Fallback: first string that looks like a sequence file
     var found = findFirst(st, function(k,v){
       if (typeof v !== 'string') return false;
       var s = v.toLowerCase();
-      if (s.indexOf('.fseq') !== -1) return true;
-      return false;
+      return (s.indexOf('.fseq') !== -1);
     });
     return (typeof found === 'string') ? found : '';
   }
 
   function extractElapsedSeconds(st){
     if (!st) return NaN;
-    // Prefer numeric fields whose key indicates elapsed/position
+
+    // Preferred numeric fields from FPP system status
+    // Examples seen in the wild: seconds_played, seconds_elapsed, time_elapsed (MM:SS), elapsedSeconds
+    try {
+      var sp = st.seconds_played;
+      if (typeof sp === 'string') sp = parseFloat(sp);
+      if (typeof sp === 'number' && isFinite(sp)) return sp;
+    } catch(e0) {}
+
+    try {
+      var se = st.seconds_elapsed;
+      if (typeof se === 'string') se = parseFloat(se);
+      if (typeof se === 'number' && isFinite(se)) return se;
+    } catch(e1) {}
+
+    try {
+      var te = st.time_elapsed;
+      var h = parseHMS(te);
+      if (isFinite(h)) return h;
+    } catch(e2) {}
+
+    // Fallback: best-effort search but avoid uptime* fields
     var foundNum = findFirst(st, function(k,v){
       if (!k) return false;
       var kk = String(k).toLowerCase();
-      if (kk.indexOf('elapsed')===-1 && kk.indexOf('position')===-1 && kk.indexOf('seconds')===-1 && kk.indexOf('time')===-1) return false;
+      if (kk.indexOf('uptime') !== -1) return false;
+      if (kk.indexOf('elapsed')===-1 && kk.indexOf('played')===-1 && kk.indexOf('position')===-1 && kk.indexOf('time_elapsed')===-1) return false;
       if (typeof v === 'number' && isFinite(v)) return true;
       if (typeof v === 'string') {
         var n = parseFloat(v);
@@ -233,33 +256,85 @@
     fetchAnyStatus(function(st){
       lastStatus = st;
       var seq = extractSeqName(st);
-      var cur = normalizeElapsedSeconds(extractElapsedSeconds(st));
+      var curRaw = extractElapsedSeconds(st);
+      var cur = normalizeElapsedSeconds(curRaw);
+
+      // Detect playlist running (so we can stop it first if needed)
+      var playlistName = '';
+      try { playlistName = (st.current_playlist && st.current_playlist.playlist) ? st.current_playlist.playlist : ''; } catch(e0) {}
+      var isPlaylist = !!(playlistName && String(playlistName).trim() && String(playlistName).toLowerCase().indexOf('no playlist') === -1);
+
       if (!seq) { debug('Seek failed: no current sequence in status'); return; }
       if (!isFinite(cur)) { debug('Seek failed: no elapsed seconds in status'); return; }
 
       var nextSec = Math.max(0, Math.floor(cur + deltaSeconds));
-      debug('Seq: '+seq+' @ '+Math.floor(cur)+' -> '+nextSec);
+      debug('Seq: '+seq+' @ '+Math.floor(cur)+' -> '+nextSec + (isPlaylist ? (' (playlist: '+playlistName+')') : ''));
 
-      // Official endpoint: GET /api/sequence/:SequenceName/start/:startSecond
-      // (FPP 5.0 migration doc lists it as COMPLETE.)
-      // If this fails, we show the error in the debug strip.
-      var urlAbs = '/api/sequence/' + encodeURIComponent(seq) + '/start/' + encodeURIComponent(String(nextSec));
-      jQuery.ajax({ url: urlAbs, method: 'GET' })
-        .done(function(){ debug('Seek OK: '+nextSec+'s'); })
-        .fail(function(xhr){
-          var code = (xhr && xhr.status) ? xhr.status : '?';
-          debug('Seek HTTP '+code+' - trying legacy...');
+      function verifyAfter(label){
+        // After 300ms, re-fetch status and see if seconds_played moved near nextSec
+        setTimeout(function(){
+          fetchAnyStatus(function(st2){
+            if (!st2) { debug(label+': no status'); return; }
+            var seq2 = extractSeqName(st2);
+            var cur2 = normalizeElapsedSeconds(extractElapsedSeconds(st2));
+            // If sequence name changed, show it
+            var msg = label + ': ';
+            msg += (seq2 ? ('seq='+seq2) : 'seq=?');
+            if (isFinite(cur2)) msg += (' @'+Math.floor(cur2)+'s');
+            // Consider success if we're within 2 seconds of target
+            if (isFinite(cur2) && Math.abs(cur2 - nextSec) <= 2) msg += ' (jumped)';
+            debug(msg);
+          });
+        }, 300);
+      }
 
-          // Legacy endpoint (still supported on many installs):
-          // /fppjson.php?command=startSequence&sequence=<name>&startSecond=<sec>
-          var urlLegacy = '/fppjson.php?command=startSequence&sequence=' + encodeURIComponent(seq) + '&startSecond=' + encodeURIComponent(String(nextSec));
-          jQuery.ajax({ url: urlLegacy, method: 'GET' })
-            .done(function(){ debug('Seek OK (legacy): '+nextSec+'s'); })
-            .fail(function(xhr2){
-              var c2 = (xhr2 && xhr2.status) ? xhr2.status : '?';
-              debug('Seek failed. REST='+code+' legacy='+c2);
-            });
-        });
+      function callRest(){
+        var urlAbs = '/api/sequence/' + encodeURIComponent(seq) + '/start/' + encodeURIComponent(String(nextSec));
+        jQuery.ajax({ url: urlAbs, method: 'GET' })
+          .done(function(data){
+            // If we got HTML (login page), don't treat as OK.
+            try {
+              if (typeof data === 'string' && data.toLowerCase().indexOf('<html') !== -1) {
+                debug('Seek blocked (login/html)');
+                return;
+              }
+            } catch(e) {}
+            debug('Seek request sent');
+            verifyAfter('After seek');
+          })
+          .fail(function(xhr){
+            var code = (xhr && xhr.status) ? xhr.status : '?';
+            debug('Seek HTTP '+code+' - trying legacy...');
+            var urlLegacy = '/fppjson.php?command=startSequence&sequence=' + encodeURIComponent(seq) + '&startSecond=' + encodeURIComponent(String(nextSec));
+            jQuery.ajax({ url: urlLegacy, method: 'GET' })
+              .done(function(data2){
+                try {
+                  if (typeof data2 === 'string' && data2.toLowerCase().indexOf('<html') !== -1) {
+                    debug('Legacy blocked (login/html)');
+                    return;
+                  }
+                } catch(e) {}
+                debug('Seek request sent (legacy)');
+                verifyAfter('After legacy');
+              })
+              .fail(function(xhr2){
+                var c2 = (xhr2 && xhr2.status) ? xhr2.status : '?';
+                debug('Seek failed. REST='+code+' legacy='+c2);
+              });
+          });
+      }
+
+      function stopPlaylistThen(cb){
+        if (!isPlaylist) return cb();
+        // Stop current playlist to prevent it overriding the new sequence start
+        jQuery.ajax({ url: '/api/playlist/current/stop', method:'GET' })
+          .always(function(){
+            // small delay for FPP to settle
+            setTimeout(cb, 150);
+          });
+      }
+
+      stopPlaylistThen(callRest);
     });
   }
 
