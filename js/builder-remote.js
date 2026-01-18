@@ -72,13 +72,15 @@
   // Special actions (reserved command tokens)
   // ---------------------------
   var lastStatus = null;
+  // Always show debug strip (helps spot why an action did nothing)
+  try { ensureDebug(); } catch(eDbg) {}
   function ensureDebug(){
     if (jQuery('#smRDebug').length) return;
     var $d = jQuery("<div id='smRDebug'></div>");
     $d.css({
       position:'fixed',
       left:'12px',
-      bottom:'12px',
+      top:'12px',
       padding:'6px 10px',
       border:'1px solid rgba(255,255,255,0.18)',
       borderRadius:'10px',
@@ -231,7 +233,17 @@
         .done(function(){ debug('Seek OK: '+nextSec+'s'); })
         .fail(function(xhr){
           var code = (xhr && xhr.status) ? xhr.status : '?';
-          debug('Seek HTTP '+code+' (check FPP apihelp.php)');
+          debug('Seek HTTP '+code+' - trying legacy...');
+
+          // Legacy endpoint (still supported on many installs):
+          // /fppjson.php?command=startSequence&sequence=<name>&startSecond=<sec>
+          var urlLegacy = '/fppjson.php?command=startSequence&sequence=' + encodeURIComponent(seq) + '&startSecond=' + encodeURIComponent(String(nextSec));
+          jQuery.ajax({ url: urlLegacy, method: 'GET' })
+            .done(function(){ debug('Seek OK (legacy): '+nextSec+'s'); })
+            .fail(function(xhr2){
+              var c2 = (xhr2 && xhr2.status) ? xhr2.status : '?';
+              debug('Seek failed. REST='+code+' legacy='+c2);
+            });
         });
     });
   }
@@ -392,10 +404,18 @@
 
             // Best-effort FPP command execution
             jQuery.ajax({
-              url: 'api/command',
+              url: '/api/command',
               method: 'POST',
               contentType: 'application/json',
               data: JSON.stringify({ command: w.command, args: w.args || {} })
+            }).fail(function(){
+              // Some installs proxy plugins differently; try relative as fallback
+              jQuery.ajax({
+                url: 'api/command',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ command: w.command, args: w.args || {} })
+              });
             });
           });
         }
@@ -436,6 +456,8 @@
 
   // ---- Status polling (uses FPP API) ----
   var lastStatus = null;
+  // Always show debug strip (helps spot why an action did nothing)
+  try { ensureDebug(); } catch(eDbg) {}
   var pollTimer = null;
 
   function getPath(obj, path){
