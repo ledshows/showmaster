@@ -20,6 +20,7 @@
         <span id="smRZoomLabel" class="sm-zoomRead">200%</span>
         <button class="sm-zoomBtn" id="smRZoomIn" type="button">+</button>
       </div>
+      <div id="smRDebug" class="sm-remoteDebug"></div>
     </div>
     <div id="smRStage" class="sm-remoteStage">
       <div id="smRScene" class="sm-remoteScene">

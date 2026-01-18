@@ -13,6 +13,10 @@
     void(msg); void(isErr);
   }
 
+  function setDebug(msg){
+    try { jQuery('#smRDebug').text(msg || ''); } catch(e) {}
+  }
+
   // ---- Safe seek (+/- seconds) for current sequence ----
   // FPP does not provide a true "seek" on a running sequence in all modes.
   // The safe method is: read status once -> stop current sequence once -> start same sequence at (elapsed + delta).
@@ -29,7 +33,7 @@
     // Prefer absolute paths to avoid /plugin/showmaster/... prefix issues.
     // Use .then(null, fail) (not .catch) for maximum jQuery compatibility.
     return ajaxGet('/api/fppd/status').then(null, function(){
-      return ajaxGet('api/fppd/status');
+      return ajaxGet('/api/system/status');
     }).then(null, function(){
       // Legacy status endpoint
       return ajaxGet('/fppjson.php?command=getFPPstatus');
@@ -123,6 +127,14 @@
       });
   }
 
+  function stopNow(){
+    // Stop Now stops playlists/scheduler too (the same as the UI button)
+    return jQuery.ajax({ url: '/api/command/Stop%20Now', method: 'GET', cache: false, timeout: 2500 })
+      .then(null, function(){
+        return jQuery.ajax({ url: '/fppjson.php?command=stopNow', method: 'GET', cache: false, timeout: 2500 });
+      });
+  }
+
   function startSequenceAt(name, startSec){
     var encName = encodeURIComponent(name);
     var encSec = encodeURIComponent(String(startSec));
@@ -148,15 +160,28 @@
       var elapsed = parseElapsedSeconds(st);
       if (!seq || !isFinite(elapsed)) {
         // No-op: we don't show toasts on remote.
+        setDebug('Seek: no active sequence');
         return;
       }
       var target = elapsed + delta;
       if (!isFinite(target) || target < 0) target = 0;
       target = Math.floor(target);
 
-      // Stop once, then start at target.
-      return stopCurrentSequence().then(function(){
+      setDebug('Seek: ' + seq + ' @' + elapsed + 's -> ' + target + 's');
+
+      // Stop Now (playlist/scheduler), then stop current sequence, then start at target.
+      return stopNow().always(function(){
+        return jQuery.Deferred(function(d){ setTimeout(function(){ d.resolve(); }, 250); }).promise();
+      }).then(function(){
+        return stopCurrentSequence();
+      }).always(function(){
+        return jQuery.Deferred(function(d2){ setTimeout(function(){ d2.resolve(); }, 150); }).promise();
+      }).then(function(){
         return startSequenceAt(seq, target);
+      }).then(function(){
+        setDebug('Seek sent: ' + seq + ' -> ' + target + 's');
+      }, function(){
+        setDebug('Seek failed (check console)');
       });
     }).always(function(){
       seekBusy = false;
@@ -305,21 +330,22 @@
     var $vp = jQuery('#smRViewport');
     var $canvas = jQuery('#smRCanvas');
 
-    // set base sizes in px (unscaled)
-    $vp.css({ width: baseW + 'px', height: baseH + 'px' });
-
-    // canvas height can be taller for scroll pages
-    $canvas.css({ width: baseW + 'px', height: baseH + 'px' });
-
-    // apply scale around top-left
-    $vp.css({
-      transformOrigin: '0 0',
-      transform: 'scale(' + s + ')'
-    });
-
-    // compute transformed bounding size
+    // We scale the *canvas* (not the viewport) to avoid CSS flex/width conflicts.
+    // Viewport becomes a simple positioned box with the *scaled* size.
     var tw = Math.round(baseW * s);
     var th = Math.round(baseH * s);
+
+    // base sizes (unscaled)
+    $canvas.css({ width: baseW + 'px', height: baseH + 'px', transformOrigin: '0 0', transform: 'scale(' + s + ')', margin: 0 });
+
+    // viewport is the scaled box
+    $vp.css({
+      display: 'block',
+      overflow: 'visible',
+      width: tw + 'px',
+      height: th + 'px',
+      transform: 'none'
+    });
 
     // scene gives scroll area; keep centered when possible
     var sceneW = Math.max(sw, tw + 16);
@@ -374,7 +400,7 @@
 
             // Special: seek forward/back in the currently playing sequence
             if (String(w.command) === '__SHOWMASTER_SEQ_SEEK__') {
-              seekBySeconds((w.args && typeof w.args.delta !== 'undefined') ? w.args.delta : 10);
+              doSeek((w.args && typeof w.args.delta !== 'undefined') ? w.args.delta : 10);
               return;
             }
 
@@ -398,7 +424,7 @@
   }
 
   function loadConfig(){
-    jQuery.getJSON('api/configfile/plugin.showmaster.json?plugin=showmaster').done(function(r){
+    jQuery.getJSON('/api/configfile/plugin.showmaster.json?plugin=showmaster').done(function(r){
       var cfg = (r && r.data) ? r.data : r;
       if (!cfg) { toast('No config found.', true); return; }
 
@@ -489,7 +515,7 @@
     // Poll FPP status. This endpoint matches the JSON structure you shared.
     function poll(){
       // Prefer relative URL (works if FPP runs under a sub-path), fallback to absolute.
-      jQuery.getJSON('api/fppd/status').done(function(js){
+      jQuery.getJSON('/api/fppd/status').done(function(js){
         lastStatus = js;
         updateStatusWidgets();
       }).fail(function(){
@@ -558,7 +584,7 @@
   function sendFppCommand(cmd, args){
     cmd = (cmd == null) ? '' : String(cmd);
     if (!cmd) return;
-    var url = 'api/command/' + encodeURIComponent(cmd);
+    var url = '/api/command/' + encodeURIComponent(cmd);
     var payload = JSON.stringify(argsToArray(args));
     return jQuery.ajax({
       url: url,
@@ -612,28 +638,8 @@
   }
 
   function seekBySeconds(delta){
-    delta = parseInt(delta,10);
-    if (!isFinite(delta)) delta = 10;
-
-    // single-shot: read status once, then Stop Now, then start sequence at target second
-    return jQuery.getJSON('api/fppd/status').then(function(st){
-      var seq = getCurrentSequenceName(st);
-      var cur = getElapsedSecondsFromStatus(st);
-      var target = cur + delta;
-      if (target < 0) target = 0;
-      try { console.log('Showmaster seek:', seq, 'cur=', cur, 'target=', target); } catch(e) {}
-
-      if (!seq) return;
-      // Stop everything first (playlist/schedule)
-      return sendFppCommand('Stop Now', []).always(function(){
-        // small delay so fppd can settle
-        return jQuery.Deferred(function(d){ setTimeout(function(){ d.resolve(); }, 250); }).promise();
-      }).then(function(){
-        // /api/sequence/:name/start/:sec
-        var url = 'api/sequence/' + encodeURIComponent(seq) + '/start/' + encodeURIComponent(String(target));
-        return jQuery.ajax({ url: url, method: 'GET' });
-      });
-    });
+    // legacy wrapper kept for older codepaths
+    return doSeek(delta);
   }
   function clamp(n, a, b){ n = parseInt(n,10); if (isNaN(n)) n = a; return Math.max(a, Math.min(b, n)); }
 
