@@ -17,28 +17,11 @@
     try { jQuery('#smRDebug').text(msg || ''); } catch(e) {}
   }
 
-  // ---- Safe seek (+/- seconds) for current sequence ----
-  // FPP does not provide a true "seek" on a running sequence in all modes.
-  // The safe method is: read status once -> stop current sequence once -> start same sequence at (elapsed + delta).
-  // IMPORTANT: no loops, no retries, and rate-limited to avoid overloading fppd.
+  // We do seeking server-side (plugin api/seek.php) to avoid spamming the browser with hundreds of API calls
+  // and to avoid the unreliable /api/sequence/<name>/start/<sec> behavior some setups show.
+  // Rate-limited to keep FPP stable.
   var seekBusy = false;
   var seekLastMs = 0;
-
-  function ajaxGet(url){
-    // Returns a jqXHR (jQuery Deferred) with a Promise-like .then/.fail/.always
-    return jQuery.ajax({ url: url, method: 'GET', dataType: 'json', cache: false, timeout: 2500 });
-  }
-
-  function getStatusOnce(){
-    // Prefer absolute paths to avoid /plugin/showmaster/... prefix issues.
-    // Use .then(null, fail) (not .catch) for maximum jQuery compatibility.
-    return ajaxGet('/api/fppd/status').then(null, function(){
-      return ajaxGet('/api/system/status');
-    }).then(null, function(){
-      // Legacy status endpoint
-      return ajaxGet('/fppjson.php?command=getFPPstatus');
-    });
-  }
 
   function parseHms(txt){
     // Accept "MM:SS" or "HH:MM:SS"
@@ -145,7 +128,6 @@
   }
 
   function doSeek(delta){
-    // Rate limit
     var now = (new Date()).getTime();
     if (seekBusy) return;
     if (now - seekLastMs < 1000) return;
@@ -154,35 +136,19 @@
 
     delta = parseInt(delta, 10);
     if (!isFinite(delta)) delta = 10;
+    if (delta === 0) { seekBusy = false; return; }
 
-    getStatusOnce().then(function(st){
-      var seq = parseSequenceName(st);
-      var elapsed = parseElapsedSeconds(st);
-      if (!seq || !isFinite(elapsed)) {
-        // No-op: we don't show toasts on remote.
-        setDebug('Seek: no active sequence');
-        return;
+    setDebug('Seek: ' + (delta>0?'+':'') + delta + 's (stepping)');
+
+    var url = 'plugin.php?plugin=showmaster&file=api/seek.php&nopage=1&delta=' + encodeURIComponent(String(delta)) + '&_=' + String(now);
+    jQuery.getJSON(url).done(function(r){
+      if (r && r.ok) {
+        setDebug('Seek OK: ' + (r.sequence||'') + ' ' + (r.delta||delta) + 's (' + (r.steps||'?') + ' steps)');
+      } else {
+        setDebug('Seek failed');
       }
-      var target = elapsed + delta;
-      if (!isFinite(target) || target < 0) target = 0;
-      target = Math.floor(target);
-
-      setDebug('Seek: ' + seq + ' @' + elapsed + 's -> ' + target + 's');
-
-      // Stop Now (playlist/scheduler), then stop current sequence, then start at target.
-      return stopNow().always(function(){
-        return jQuery.Deferred(function(d){ setTimeout(function(){ d.resolve(); }, 250); }).promise();
-      }).then(function(){
-        return stopCurrentSequence();
-      }).always(function(){
-        return jQuery.Deferred(function(d2){ setTimeout(function(){ d2.resolve(); }, 150); }).promise();
-      }).then(function(){
-        return startSequenceAt(seq, target);
-      }).then(function(){
-        setDebug('Seek sent: ' + seq + ' -> ' + target + 's');
-      }, function(){
-        setDebug('Seek failed (check console)');
-      });
+    }).fail(function(){
+      setDebug('Seek failed');
     }).always(function(){
       seekBusy = false;
     });
@@ -300,15 +266,12 @@
   }
 
   function computeScaleAndTransform(){
+    // Keep zoom dead simple: scale = zoom%, stage scrolls.
+    // This makes desktop zoom always visibly work.
     var $stage = jQuery('#smRStage');
-    var sw = $stage.width() || 320;
-    var sh = $stage.height() || 240;
-    // On some FPP layouts the stage can report ~0px height until after first paint.
-    if (!isFinite(sh) || sh < 80) {
-      try { sh = Math.max(240, Math.round((window.innerHeight || 600) * 0.6)); } catch(e) { sh = 360; }
-    }
-
     var $scene = jQuery('#smRScene');
+    var $vp = jQuery('#smRViewport');
+    var $canvas = jQuery('#smRCanvas');
 
     // use page height (can be taller than the device height)
     var pg = currentPage();
@@ -318,45 +281,32 @@
     var baseW = state.deviceW;
     var baseH = ph;
 
-    // Fit to stage (no rotation on this page)
-    var sFit = Math.min(sw/baseW, sh/baseH);
-    if (!isFinite(sFit) || sFit<=0) sFit = 1;
     var z = (state.zoomPercent || 200) / 100.0;
-    var s = sFit * z;
-    if (!isFinite(s) || s<=0) s = 1;
-    s = Math.max(0.2, Math.min(3.0, s));
-    state.scale = s;
+    if (!isFinite(z) || z <= 0) z = 2;
+    z = Math.max(0.5, Math.min(5.0, z));
+    state.scale = z;
 
-    var $vp = jQuery('#smRViewport');
-    var $canvas = jQuery('#smRCanvas');
+    var tw = Math.round(baseW * z);
+    var th = Math.round(baseH * z);
 
-    // We scale the *canvas* (not the viewport) to avoid CSS flex/width conflicts.
-    // Viewport becomes a simple positioned box with the *scaled* size.
-    var tw = Math.round(baseW * s);
-    var th = Math.round(baseH * s);
+    // canvas scaled
+    $canvas.css({ width: baseW + 'px', height: baseH + 'px', transformOrigin: '0 0', transform: 'scale(' + z + ')', margin: 0 });
 
-    // base sizes (unscaled)
-    $canvas.css({ width: baseW + 'px', height: baseH + 'px', transformOrigin: '0 0', transform: 'scale(' + s + ')', margin: 0 });
-
-    // viewport is the scaled box
+    // viewport gives the scaled box size
     $vp.css({
       display: 'block',
       overflow: 'visible',
       width: tw + 'px',
       height: th + 'px',
-      transform: 'none'
+      position: 'relative',
+      left: '0',
+      top: '0',
+      margin: '16px'
     });
 
-    // scene gives scroll area; keep centered when possible
-    var sceneW = Math.max(sw, tw + 16);
-    var sceneH = Math.max(sh, th + 16);
-    $scene.css({ width: sceneW + 'px', height: sceneH + 'px' });
-
-    var left = Math.round((sceneW - tw)/2);
-    var top = Math.round((sceneH - th)/2);
-    if (left < 8) left = 8;
-    if (top < 8) top = 8;
-    $vp.css({ position:'absolute', left:left+'px', top:top+'px' });
+    // scene defines scroll area
+    $scene.css({ width: (tw + 32) + 'px', height: (th + 32) + 'px', position: 'relative' });
+    $stage.css({ overflow: 'auto' });
   }
 
   function renderCanvas(){
