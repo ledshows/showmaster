@@ -191,6 +191,21 @@
     return NaN;
   }
 
+  function normalizeElapsedSeconds(v){
+    // FPP status fields are not consistent across versions/endpoints.
+    // Some endpoints return elapsed time in milliseconds (e.g. 20960 == 20.96s).
+    // Heuristic: if it's a fairly large number but not hours/days worth of seconds,
+    // treat it as milliseconds.
+    if (!isFinite(v)) return v;
+
+    // If it's bigger than 1000, it's unlikely to be seconds for most sequences,
+    // but very plausible to be milliseconds.
+    if (v > 1000 && v < 60*60*24*1000) {
+      return v / 1000;
+    }
+    return v;
+  }
+
   function fetchAnyStatus(cb){
     // Best-effort: try new + legacy endpoints.
     var tries = [
@@ -218,7 +233,7 @@
     fetchAnyStatus(function(st){
       lastStatus = st;
       var seq = extractSeqName(st);
-      var cur = extractElapsedSeconds(st);
+      var cur = normalizeElapsedSeconds(extractElapsedSeconds(st));
       if (!seq) { debug('Seek failed: no current sequence in status'); return; }
       if (!isFinite(cur)) { debug('Seek failed: no elapsed seconds in status'); return; }
 
