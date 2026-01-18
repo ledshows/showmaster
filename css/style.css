@@ -843,9 +843,6 @@
 
 .sm-remoteBar{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;}
 
-/* small debug line on remote page (helps troubleshooting, harmless otherwise) */
-.sm-remoteDebug{font-size:12px; opacity:0.85; padding:6px 8px; border-radius:12px; border:1px solid rgba(255,255,255,0.10); background:rgba(0,0,0,0.12); max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-
 .sm-remoteZoom{display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:12px; border:1px solid rgba(255,255,255,0.12); background:rgba(0,0,0,0.14);}
 .sm-zoomBtn{width:34px; height:34px; border-radius:12px; border:1px solid rgba(255,255,255,0.12); background:rgba(0,0,0,0.22); color:#fff; cursor:pointer;}
 .sm-zoomBtn:hover{background:rgba(255,255,255,0.06);}

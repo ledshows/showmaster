@@ -290,13 +290,13 @@ function widgetById(id) {
     if (w.type === "status") return prettySource(w.source);
     if (w.type === "tab") {
       var label = (w.label == null) ? "" : String(w.label);
-      var iconT = w.icon ? ("<i class=\'fa fa-" + esc(w.icon) + "\' style=\'font-size:" + (w.iconSize||14) + "px\'></i>") : "";
+      var iconT = w.icon ? smFaHtml(w.icon, (w.iconSize||14)) : "";
       if (!label.trim()) return iconT;
       return iconT + "<span>" + esc(label) + "</span>";
     }
     // action: icon + label (spacing handled by CSS, not by trailing spaces)
     var label2 = (w.label == null) ? "" : String(w.label);
-    var icon = w.icon ? ("<i class='fa fa-" + esc(w.icon) + "' style='font-size:" + (w.iconSize||14) + "px'></i>") : "";
+    var icon = w.icon ? smFaHtml(w.icon, (w.iconSize||14)) : "";
     if (!label2.trim()) return icon;
     return icon + "<span>" + esc(label2) + "</span>";
   }
@@ -704,6 +704,39 @@ function makeInteractive($el, w) {
   }
 
   // -------- icon modal --------
+  // Font Awesome helper: decide whether an icon is solid/brands/regular based on fa-icons.js
+  function _smFaStyleMap() {
+    if (window.smFaStyleMap) return window.smFaStyleMap;
+    var m = {};
+    if (window.faIcons && window.faIcons.length) {
+      for (var i=0;i<window.faIcons.length;i++) {
+        var it = window.faIcons[i];
+        if (!it || typeof it !== 'object') continue;
+        var t = String(it.title || '').trim();
+        if (!t) continue;
+        // expected: "fas fa-home" or "fab fa-github"
+        var parts = t.split(/\s+/);
+        var style = parts[0] || 'fas';
+        var nm = (parts[1] || '').replace(/^fa-/, '').trim();
+        if (nm) m[nm] = style;
+      }
+    }
+    window.smFaStyleMap = m;
+    return m;
+  }
+
+  function smFaClassFor(name) {
+    var m = _smFaStyleMap();
+    return (m && m[name]) ? m[name] : 'fas';
+  }
+
+  function smFaHtml(name, px) {
+    if (!name) return '';
+    var cls = smFaClassFor(name);
+    var sz = px ? (" style='font-size:" + px + "px'") : '';
+    return "<i class='" + cls + " fa-" + esc(name) + "'" + sz + "></i>";
+  }
+
   function allIcons() {
     // supports faIcons array from fa-icons.js
     if (window.faIcons && window.faIcons.length) {
@@ -737,7 +770,7 @@ function makeInteractive($el, w) {
       if (!name) continue;
       var $b = $("<button type='button' class='smIconTile'></button>");
       $b.attr("data-icon", name);
-      $b.html("<i class='fa fa-" + esc(name) + "'></i>");
+      $b.html("<i class='" + smFaClassFor(name) + " fa-" + esc(name) + "'></i>");
       if (name === cur) $b.addClass("active");
       $g.append($b);
     }

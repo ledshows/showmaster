@@ -13,15 +13,28 @@
     void(msg); void(isErr);
   }
 
-  function setDebug(msg){
-    try { jQuery('#smRDebug').text(msg || ''); } catch(e) {}
-  }
-
-  // We do seeking server-side (plugin api/seek.php) to avoid spamming the browser with hundreds of API calls
-  // and to avoid the unreliable /api/sequence/<name>/start/<sec> behavior some setups show.
-  // Rate-limited to keep FPP stable.
+  // ---- Safe seek (+/- seconds) for current sequence ----
+  // FPP does not provide a true "seek" on a running sequence in all modes.
+  // The safe method is: read status once -> stop current sequence once -> start same sequence at (elapsed + delta).
+  // IMPORTANT: no loops, no retries, and rate-limited to avoid overloading fppd.
   var seekBusy = false;
   var seekLastMs = 0;
+
+  function ajaxGet(url){
+    // Returns a jqXHR (jQuery Deferred) with a Promise-like .then/.fail/.always
+    return jQuery.ajax({ url: url, method: 'GET', dataType: 'json', cache: false, timeout: 2500 });
+  }
+
+  function getStatusOnce(){
+    // Prefer absolute paths to avoid /plugin/showmaster/... prefix issues.
+    // Use .then(null, fail) (not .catch) for maximum jQuery compatibility.
+    return ajaxGet('/api/fppd/status').then(null, function(){
+      return ajaxGet('api/fppd/status');
+    }).then(null, function(){
+      // Legacy status endpoint
+      return ajaxGet('/fppjson.php?command=getFPPstatus');
+    });
+  }
 
   function parseHms(txt){
     // Accept "MM:SS" or "HH:MM:SS"
@@ -110,14 +123,6 @@
       });
   }
 
-  function stopNow(){
-    // Stop Now stops playlists/scheduler too (the same as the UI button)
-    return jQuery.ajax({ url: '/api/command/Stop%20Now', method: 'GET', cache: false, timeout: 2500 })
-      .then(null, function(){
-        return jQuery.ajax({ url: '/fppjson.php?command=stopNow', method: 'GET', cache: false, timeout: 2500 });
-      });
-  }
-
   function startSequenceAt(name, startSec){
     var encName = encodeURIComponent(name);
     var encSec = encodeURIComponent(String(startSec));
@@ -128,6 +133,7 @@
   }
 
   function doSeek(delta){
+    // Rate limit
     var now = (new Date()).getTime();
     if (seekBusy) return;
     if (now - seekLastMs < 1000) return;
@@ -136,19 +142,22 @@
 
     delta = parseInt(delta, 10);
     if (!isFinite(delta)) delta = 10;
-    if (delta === 0) { seekBusy = false; return; }
 
-    setDebug('Seek: ' + (delta>0?'+':'') + delta + 's (stepping)');
-
-    var url = 'plugin.php?plugin=showmaster&file=api/seek.php&nopage=1&delta=' + encodeURIComponent(String(delta)) + '&_=' + String(now);
-    jQuery.getJSON(url).done(function(r){
-      if (r && r.ok) {
-        setDebug('Seek OK: ' + (r.sequence||'') + ' ' + (r.delta||delta) + 's (' + (r.steps||'?') + ' steps)');
-      } else {
-        setDebug('Seek failed');
+    getStatusOnce().then(function(st){
+      var seq = parseSequenceName(st);
+      var elapsed = parseElapsedSeconds(st);
+      if (!seq || !isFinite(elapsed)) {
+        // No-op: we don't show toasts on remote.
+        return;
       }
-    }).fail(function(){
-      setDebug('Seek failed');
+      var target = elapsed + delta;
+      if (!isFinite(target) || target < 0) target = 0;
+      target = Math.floor(target);
+
+      // Stop once, then start at target.
+      return stopCurrentSequence().then(function(){
+        return startSequenceAt(seq, target);
+      });
     }).always(function(){
       seekBusy = false;
     });
@@ -198,13 +207,13 @@
     }
     if (w.type === 'tab') {
       var label = (w.label == null) ? '' : String(w.label);
-      var iconT = w.icon ? ("<i class='fa fa-" + esc(w.icon) + "' style='font-size:" + (w.iconSize||14) + "px'></i>") : '';
+      var iconT = w.icon ? ("<i class='" + (window.smFaClassFor ? window.smFaClassFor(w.icon) : 'fas') + " fa-" + esc(w.icon) + "' style='font-size:" + (w.iconSize||14) + "px'></i>") : '';
       if (!label.trim()) return iconT;
       return iconT + '<span>' + esc(label) + '</span>';
     }
     // action
     var label2 = (w.label == null) ? '' : String(w.label);
-    var icon = w.icon ? ("<i class='fa fa-" + esc(w.icon) + "' style='font-size:" + (w.iconSize||14) + "px'></i>") : '';
+    var icon = w.icon ? ("<i class='" + (window.smFaClassFor ? window.smFaClassFor(w.icon) : 'fas') + " fa-" + esc(w.icon) + "' style='font-size:" + (w.iconSize||14) + "px'></i>") : '';
     if (!label2.trim()) return icon;
     return icon + '<span>' + esc(label2) + '</span>';
   }
@@ -266,46 +275,45 @@
   }
 
   function computeScaleAndTransform(){
-    // Keep zoom dead simple: scale = zoom%, stage scrolls.
-    // This makes desktop zoom always visibly work.
+    // Simple zoom: scale = zoomPercent only.
+    // The previous auto-fit logic could effectively cancel zoom on desktop.
+
     var $stage = jQuery('#smRStage');
     var $scene = jQuery('#smRScene');
     var $vp = jQuery('#smRViewport');
     var $canvas = jQuery('#smRCanvas');
 
-    // use page height (can be taller than the device height)
+    // Base size = device width + current page height
     var pg = currentPage();
-    var ph = (pg && pg.h) ? parseInt(pg.h,10) : state.deviceH;
-    if (!isFinite(ph) || ph < state.deviceH) ph = state.deviceH;
-
-    var baseW = state.deviceW;
+    var baseW = state.deviceW || 320;
+    var ph = (pg && pg.h) ? parseInt(pg.h, 10) : state.deviceH;
+    if (!isFinite(ph) || ph < (state.deviceH || 240)) ph = (state.deviceH || 240);
     var baseH = ph;
 
     var z = (state.zoomPercent || 200) / 100.0;
     if (!isFinite(z) || z <= 0) z = 2;
-    z = Math.max(0.5, Math.min(5.0, z));
+    z = Math.max(0.5, Math.min(3.0, z));
     state.scale = z;
 
-    var tw = Math.round(baseW * z);
-    var th = Math.round(baseH * z);
+    // Set unscaled base sizes
+    $vp.css({ width: baseW + 'px', height: baseH + 'px' });
+    $canvas.css({ width: baseW + 'px', height: baseH + 'px' });
 
-    // canvas scaled
-    $canvas.css({ width: baseW + 'px', height: baseH + 'px', transformOrigin: '0 0', transform: 'scale(' + z + ')', margin: 0 });
-
-    // viewport gives the scaled box size
+    // Apply scale
     $vp.css({
-      display: 'block',
-      overflow: 'visible',
-      width: tw + 'px',
-      height: th + 'px',
-      position: 'relative',
-      left: '0',
-      top: '0',
-      margin: '16px'
+      transformOrigin: '0 0',
+      transform: 'scale(' + z + ')',
+      position: 'absolute',
+      left: '8px',
+      top: '8px'
     });
 
-    // scene defines scroll area
-    $scene.css({ width: (tw + 32) + 'px', height: (th + 32) + 'px', position: 'relative' });
+    // Make the scroll area match the scaled content
+    var tw = Math.round(baseW * z) + 16;
+    var th = Math.round(baseH * z) + 16;
+    $scene.css({ width: tw + 'px', height: th + 'px', position: 'relative' });
+
+    // Ensure stage scroll works everywhere
     $stage.css({ overflow: 'auto' });
   }
 
@@ -350,7 +358,7 @@
 
             // Special: seek forward/back in the currently playing sequence
             if (String(w.command) === '__SHOWMASTER_SEQ_SEEK__') {
-              doSeek((w.args && typeof w.args.delta !== 'undefined') ? w.args.delta : 10);
+              seekBySeconds((w.args && typeof w.args.delta !== 'undefined') ? w.args.delta : 10);
               return;
             }
 
@@ -374,7 +382,7 @@
   }
 
   function loadConfig(){
-    jQuery.getJSON('/api/configfile/plugin.showmaster.json?plugin=showmaster').done(function(r){
+    jQuery.getJSON('api/configfile/plugin.showmaster.json?plugin=showmaster').done(function(r){
       var cfg = (r && r.data) ? r.data : r;
       if (!cfg) { toast('No config found.', true); return; }
 
@@ -465,7 +473,7 @@
     // Poll FPP status. This endpoint matches the JSON structure you shared.
     function poll(){
       // Prefer relative URL (works if FPP runs under a sub-path), fallback to absolute.
-      jQuery.getJSON('/api/fppd/status').done(function(js){
+      jQuery.getJSON('api/fppd/status').done(function(js){
         lastStatus = js;
         updateStatusWidgets();
       }).fail(function(){
@@ -492,7 +500,7 @@
     if (jQuery('#smRLockOverlay').length) return;
     var $ov = jQuery("<div id=\'smRLockOverlay\' class=\'sm-lockOverlay\' style=\'display:none;\'>" +
       "<div class='sm-lockCard'>" +
-        "<div class='sm-lockTitle'><i class='fa fa-lock'></i> Screen locked</div>" +
+        "<div class='sm-lockTitle'><i class='fas fa-lock'></i> Screen locked</div>" +
         "<button type='button' id='smRUnlockBtn' class='sm-unlockBtn'>Unlock</button>" +
       "</div>" +
     "</div>");
@@ -534,7 +542,7 @@
   function sendFppCommand(cmd, args){
     cmd = (cmd == null) ? '' : String(cmd);
     if (!cmd) return;
-    var url = '/api/command/' + encodeURIComponent(cmd);
+    var url = 'api/command/' + encodeURIComponent(cmd);
     var payload = JSON.stringify(argsToArray(args));
     return jQuery.ajax({
       url: url,
@@ -588,9 +596,24 @@
   }
 
   function seekBySeconds(delta){
-    // legacy wrapper kept for older codepaths
-    return doSeek(delta);
+    delta = parseInt(delta,10);
+    if (!isFinite(delta)) delta = 10;
+
+    // Do it server-side (localhost) so we are not dependent on browser session/cookies.
+    var url = 'plugin.php?plugin=showmaster&page=pages/api.php&cmd=seek&delta=' + encodeURIComponent(String(delta)) + '&nopage=1';
+    return jQuery.getJSON(url).done(function(res){
+      try {
+        if (res && res.ok) {
+          console.log('Seek sent:', (res.sequence||'?') + ' -> ' + (res.to||'?') + 's');
+        } else {
+          console.log('Seek failed:', res);
+        }
+      } catch(e) {}
+    }).fail(function(xhr){
+      try { console.log('Seek failed (xhr):', xhr ? xhr.status : '0'); } catch(e) {}
+    });
   }
+
   function clamp(n, a, b){ n = parseInt(n,10); if (isNaN(n)) n = a; return Math.max(a, Math.min(b, n)); }
 
   function setZoom(p){
