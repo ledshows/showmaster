@@ -96,13 +96,13 @@
     }
     if (w.type === 'tab') {
       var label = (w.label == null) ? '' : String(w.label);
-      var iconT = w.icon ? ("<i class='" + (window.smFaClassFor ? window.smFaClassFor(w.icon) : 'fas') + " fa-" + esc(w.icon) + "' style='font-size:" + (w.iconSize||14) + "px'></i>") : '';
+      var iconT = w.icon ? ("<i class='" + (window.smFaClassFor ? window.smFaClassFor(w.icon) : 'fa fa-solid fas') + " fa-" + esc(w.icon) + "' style='font-size:" + (w.iconSize||14) + "px'></i>") : '';
       if (!label.trim()) return iconT;
       return iconT + '<span>' + esc(label) + '</span>';
     }
     // action
     var label2 = (w.label == null) ? '' : String(w.label);
-    var icon = w.icon ? ("<i class='" + (window.smFaClassFor ? window.smFaClassFor(w.icon) : 'fas') + " fa-" + esc(w.icon) + "' style='font-size:" + (w.iconSize||14) + "px'></i>") : '';
+    var icon = w.icon ? ("<i class='" + (window.smFaClassFor ? window.smFaClassFor(w.icon) : 'fa fa-solid fas') + " fa-" + esc(w.icon) + "' style='font-size:" + (w.iconSize||14) + "px'></i>") : '';
     if (!label2.trim()) return icon;
     return icon + '<span>' + esc(label2) + '</span>';
   }
@@ -383,7 +383,7 @@
     if (jQuery('#smRLockOverlay').length) return;
     var $ov = jQuery("<div id=\'smRLockOverlay\' class=\'sm-lockOverlay\' style=\'display:none;\'>" +
       "<div class='sm-lockCard'>" +
-        "<div class='sm-lockTitle'><i class='fas fa-lock'></i> Screen locked</div>" +
+        "<div class='sm-lockTitle'><i class='fa fa-solid fas fa-lock'></i> Screen locked</div>" +
         "<button type='button' id='smRUnlockBtn' class='sm-unlockBtn'>Unlock</button>" +
       "</div>" +
     "</div>");
