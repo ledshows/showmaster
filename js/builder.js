@@ -982,26 +982,6 @@ function makeInteractive($el, w) {
     setSelection(w.id, true);
   }
 
-  // Quick preset: seek current sequence forward by 10 seconds (handled by remote page)
-  function addSeek10() {
-    ensurePages();
-    var pg = currentPage();
-    var w = normalizeWidget({
-      id: uid("action"),
-      type: "action",
-      x: Math.round((DEVICE_W - 120) / 2), y: Math.round((DEVICE_H - 44) / 2),
-      w: 120, h: 44,
-      label: "+10s",
-      icon: "forward",
-      iconSize: 24,
-      textSize: 14,
-      command: "__SHOWMASTER_SEQ_SEEK__",
-      args: { delta: 10 }
-    });
-    (pg.widgets || (pg.widgets=[])).push(w);
-    setSelection(w.id, true);
-  }
-
   function addLock() {
     ensurePages();
     var pg = currentPage();
@@ -1267,7 +1247,6 @@ function makeInteractive($el, w) {
     });
 
     $("#smAddAction").off("click").on("click", function(e){ e.preventDefault(); addAction(); });
-    $("#smAddSeek10").off("click").on("click", function(e){ e.preventDefault(); addSeek10(); });
     $("#smAddLock").off("click").on("click", function(e){ e.preventDefault(); addLock(); });
     $("#smAddStatus").off("click").on("click", function(e){ e.preventDefault(); addStatus(); });
     $("#smAddTab").off("click").on("click", function(e){ e.preventDefault(); addTab(); });

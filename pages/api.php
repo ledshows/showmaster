@@ -33,30 +33,6 @@ function curl_request_simple($url, $method = 'GET', $postfields = null, $headers
   return array('ok' => true, 'http' => $http, 'body' => $resp, 'err' => '');
 }
 
-function parse_seconds_any($v) {
-  if ($v === null) return 0;
-  if (is_int($v) || is_float($v)) {
-    $n = (float)$v;
-    if ($n > 1000*60) $n = $n/1000.0; // ms -> s
-    if ($n < 0) $n = 0;
-    return (int)floor($n);
-  }
-  $s = trim((string)$v);
-  if ($s === '') return 0;
-  // HH:MM:SS or MM:SS
-  if (preg_match('/^(\d+):(\d{2})(?::(\d{2}))?$/', $s, $m)) {
-    if (isset($m[3]) && $m[3] !== '') return ((int)$m[1])*3600 + ((int)$m[2])*60 + ((int)$m[3]);
-    return ((int)$m[1])*60 + ((int)$m[2]);
-  }
-  if (preg_match('/(\d+(?:\.\d+)?)\s*s/i', $s, $m)) {
-    return (int)floor((float)$m[1]);
-  }
-  if (is_numeric($s)) return (int)floor((float)$s);
-  return 0;
-}
-
-
-
 $cmd = isset($_GET['cmd']) ? strtolower(trim($_GET['cmd'])) : '';
 
 if ($cmd === 'scan') {
@@ -164,70 +140,6 @@ if ($cmd === 'scan') {
 }
 
 
-
-if ($cmd === 'seek') {
-  // Seek the currently playing sequence by delta seconds.
-  // Implemented server-side (localhost) to avoid browser/session quirks.
-
-  $delta = 10;
-  if (isset($_GET['delta'])) $delta = (int)$_GET['delta'];
-  if ($delta === 0) $delta = 10;
-
-  $base = 'http://127.0.0.1';
-
-  $st = curl_request_simple($base . '/api/fppd/status', 'GET', null, array(), 3);
-  if (!$st['ok'] || $st['http'] < 200 || $st['http'] >= 300) {
-    echo json_encode(array('ok' => false, 'error' => 'Could not read FPP status', 'detail' => $st));
-    exit;
-  }
-  $js = json_decode($st['body'], true);
-  if (!is_array($js)) {
-    echo json_encode(array('ok' => false, 'error' => 'Bad status JSON'));
-    exit;
-  }
-
-  $seq = '';
-  if (isset($js['current_sequence'])) $seq = (string)$js['current_sequence'];
-  if ($seq === '' && isset($js['current_playlist']) && isset($js['current_playlist']['current_sequence'])) {
-    $seq = (string)$js['current_playlist']['current_sequence'];
-  }
-
-  // elapsed seconds
-  $cur = 0;
-  if (isset($js['seconds_elapsed'])) $cur = parse_seconds_any($js['seconds_elapsed']);
-  else if (isset($js['elapsed'])) $cur = parse_seconds_any($js['elapsed']);
-  else if (isset($js['time_elapsed'])) $cur = parse_seconds_any($js['time_elapsed']);
-  else if (isset($js['status']) && isset($js['status']['seconds_elapsed'])) $cur = parse_seconds_any($js['status']['seconds_elapsed']);
-
-  if ($seq === '') {
-    echo json_encode(array('ok' => false, 'error' => 'No current_sequence in status', 'status' => $js));
-    exit;
-  }
-
-  $target = $cur + $delta;
-  if ($target < 0) $target = 0;
-
-  // Stop Now
-  $stop = curl_request_simple($base . '/api/command/' . rawurlencode('Stop Now'), 'POST', '[]', array('Content-Type: application/json'), 3);
-
-  // Start at target second (REST)
-  $start = curl_request_simple($base . '/api/sequence/' . rawurlencode($seq) . '/start/' . rawurlencode((string)$target), 'GET', null, array(), 5);
-
-  // Fallback: legacy fppjson.php (some builds behave better)
-  $legacy = curl_request_simple($base . '/fppjson.php?command=startSequence&sequence=' . rawurlencode($seq) . '&startSecond=' . rawurlencode((string)$target), 'GET', null, array(), 5);
-
-  echo json_encode(array(
-    'ok' => true,
-    'sequence' => $seq,
-    'from' => $cur,
-    'to' => $target,
-    'delta' => $delta,
-    'stop' => $stop,
-    'start' => $start,
-    'legacy' => $legacy
-  ));
-  exit;
-}
 
 if ($cmd === 'push') {
   // Push proxy (copied from api/push.php)
