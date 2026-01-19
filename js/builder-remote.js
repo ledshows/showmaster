@@ -7,6 +7,45 @@
     return s.replace(/[&<>\"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);});
   }
 
+  // Font Awesome class helper (FA5 + FA6 compatible)
+  // - FA5 expects:  fas / far / fab
+  // - FA6 expects:  fa-solid / fa-regular / fa-brands
+  // We output BOTH so whichever version is available will render icons.
+  function _smFaStyleMap(){
+    if (window.smFaStyleMap) return window.smFaStyleMap;
+    var m = {};
+    if (window.faIcons && window.faIcons.length) {
+      for (var i=0;i<window.faIcons.length;i++) {
+        var it = window.faIcons[i];
+        if (!it || typeof it !== 'object') continue;
+        var t = String(it.title || '').trim();
+        if (!t) continue;
+        var parts = t.split(/\s+/);
+        var style = parts[0] || 'fas';
+        var nm = (parts[1] || '').replace(/^fa-/, '').trim();
+        if (nm) m[nm] = style;
+      }
+    }
+    window.smFaStyleMap = m;
+    return m;
+  }
+
+  function smFaClassFor(name){
+    var m = _smFaStyleMap();
+    var style = (m && m[name]) ? m[name] : 'fas';
+
+    if (style.indexOf('fa-') === 0) {
+      if (style === 'fa-brands') return 'fa-brands fab';
+      if (style === 'fa-regular') return 'fa-regular far';
+      return 'fa-solid fas';
+    }
+
+    if (style === 'fab') return 'fa-brands fab';
+    if (style === 'far') return 'fa-regular far';
+    return 'fa-solid ' + style;
+  }
+  try { window.smFaClassFor = window.smFaClassFor || smFaClassFor; } catch(e) {}
+
   function toast(msg, isErr){
     // Remote page: no notices/toasts (user asked).
     // Keep as no-op to avoid breaking old calls.
@@ -364,6 +403,10 @@
   function toggleLocked(){ setLocked(!state.locked); }
 
   // ---- FPP command helper ----
+  var cmdInFlight = false;
+  var cmdLastAt = 0;
+  var CMD_DEBOUNCE_MS = 250;
+
   function argsToArray(args){
     if (args == null) return [];
     if (Array.isArray(args)) return args.map(function(v){ return String(v); });
@@ -384,15 +427,37 @@
   }
 
   function sendFppCommand(cmd, args){
-    cmd = (cmd == null) ? '' : String(cmd);
+    cmd = (cmd == null) ? "" : String(cmd);
+    cmd = cmd.replace(/^\s+|\s+$/g, "");
     if (!cmd) return;
-    var url = 'api/command/' + encodeURIComponent(cmd);
-    var payload = JSON.stringify(argsToArray(args));
+
+    // Never call /api/command/ with an empty/invalid command (can crash some FPP builds).
+    // Allow: letters, digits, underscore, dash, dot, colon.
+    if (!/^[A-Za-z0-9_\.\-:]+$/.test(cmd)) {
+      try { console.warn("Showmaster Remote: blocked invalid command", cmd); } catch(e) {}
+      return;
+    }
+
+    // Debounce + single-flight to avoid hammering fppd (32322)
+    var now = Date.now ? Date.now() : (new Date()).getTime();
+    if ((now - cmdLastAt) < CMD_DEBOUNCE_MS) return;
+    if (cmdInFlight) return;
+    cmdLastAt = now;
+    cmdInFlight = true;
+
+    var url = "/api/command/" + encodeURIComponent(cmd);
+    var payload = "[]";
+    try { payload = JSON.stringify(argsToArray(args)); } catch(ex) { payload = "[]"; }
+
     return jQuery.ajax({
       url: url,
-      method: 'POST',
-      contentType: 'application/json',
-      data: payload
+      method: "POST",
+      contentType: "application/json",
+      processData: false,
+      data: payload,
+      timeout: 5000
+    }).always(function(){
+      cmdInFlight = false;
     });
   }
 

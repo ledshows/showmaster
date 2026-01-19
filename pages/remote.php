@@ -3,6 +3,10 @@
 // Loads the same plugin config (plugin.showmaster.json) and renders it for mobile/desktop.
 ?>
 <link rel="stylesheet" href="plugin.php?plugin=showmaster&file=css/style.css&nopage=1" />
+<link rel="stylesheet" href="/css/fontawesome/css/all.min.css" />
+<link rel="stylesheet" href="/css/font-awesome/css/font-awesome.min.css" />
+<link rel="stylesheet" href="/css/font-awesome.min.css" />
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.4/css/all.css" />
 <div class="sm-wrap sm-remoteWrap">
   <div class="sm-topbar sm-remoteTop">
     <div class="sm-brand">
@@ -31,4 +35,5 @@
   </div>
 </div>
 
+<script src="plugin.php?plugin=showmaster&file=js/fa-icons.js&nopage=1"></script>
 <script src="plugin.php?plugin=showmaster&file=js/builder-remote.js&nopage=1"></script>

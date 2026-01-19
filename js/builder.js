@@ -725,9 +725,25 @@ function makeInteractive($el, w) {
     return m;
   }
 
+  // Return classes that work with BOTH Font Awesome 5 (fas/far/fab)
+  // and Font Awesome 6 (fa-solid/fa-regular/fa-brands).
   function smFaClassFor(name) {
     var m = _smFaStyleMap();
-    return (m && m[name]) ? m[name] : 'fas';
+    var style = (m && m[name]) ? m[name] : 'fas';
+
+    // If already a FA6 prefix, add the FA5-equivalent too.
+    if (style.indexOf('fa-') === 0) {
+      if (style === 'fa-brands') return 'fa-brands fab';
+      if (style === 'fa-regular') return 'fa-regular far';
+      // default: solid
+      return 'fa-solid fas';
+    }
+
+    // Map FA5 prefixes to a dual-class set.
+    if (style === 'fab') return 'fa-brands fab';
+    if (style === 'far') return 'fa-regular far';
+    // default: solid (fas)
+    return 'fa-solid ' + style;
   }
 
   function smFaHtml(name, px) {

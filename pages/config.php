@@ -3,6 +3,10 @@
 ?>
 <link rel="stylesheet" href="plugin.php?plugin=showmaster&file=css/style.css&nopage=1" />
 
+<link rel="stylesheet" href="/css/fontawesome/css/all.min.css" />
+<link rel="stylesheet" href="/css/font-awesome/css/font-awesome.min.css" />
+<link rel="stylesheet" href="/css/font-awesome.min.css" />
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.4/css/all.css" />
 <div class="sm-wrap">
   <div class="sm-topbar">
     <div class="sm-brand">
@@ -88,7 +92,7 @@
       <div class="sm-field">
         <button class="buttons btn-outline-light sm-wideBtn" id="smAddLock" type="button" title="Add lock button to canvas">
           <span class="smPlus">+</span>
-          <span class="smBtnText">Lock screen button</span>
+          <span class="smBtnText">lock screen button</span>
         </button>
       </div>
     </div>
