@@ -151,6 +151,7 @@
     scale: 1,
     zoomPercent: 200,
     fitMode: false,
+    canvasOnly: false,
     locked: false
   };
 
@@ -207,18 +208,28 @@
     $vp.css({
       transformOrigin: '0 0',
       transform: 'scale(' + z + ')',
-      position: 'absolute',
-      left: '8px',
-      top: '8px'
+      position: 'absolute'
     });
 
-    // Make the scroll area match the scaled content
-    var tw = Math.round(baseW * z) + 16;
-    var th = Math.round(baseH * z) + 16;
-    $scene.css({ width: tw + 'px', height: th + 'px', position: 'relative' });
-
-    // Ensure stage scroll works everywhere (fit mode disables scroll via CSS)
-    $stage.css({ overflow: 'auto' });
+    // Fit mode: center inside the visible stage and remove scroll
+    if (state.fitMode) {
+      var cw2 = $stage.innerWidth ? $stage.innerWidth() : $stage.width();
+      var ch2 = $stage.innerHeight ? $stage.innerHeight() : $stage.height();
+      if (!isFinite(cw2) || cw2 <= 0) cw2 = Math.round(baseW * z) + 16;
+      if (!isFinite(ch2) || ch2 <= 0) ch2 = Math.round(baseH * z) + 16;
+      var left = Math.max(8, Math.floor((cw2 - (baseW * z)) / 2));
+      var top  = Math.max(8, Math.floor((ch2 - (baseH * z)) / 2));
+      $vp.css({ left: left + 'px', top: top + 'px' });
+      $scene.css({ width: cw2 + 'px', height: ch2 + 'px', position: 'relative' });
+      $stage.css({ overflow: 'hidden' });
+    } else {
+      // Zoom mode: keep the viewport pinned in the scrollable scene
+      $vp.css({ left: '8px', top: '8px' });
+      var tw = Math.round(baseW * z) + 16;
+      var th = Math.round(baseH * z) + 16;
+      $scene.css({ width: tw + 'px', height: th + 'px', position: 'relative' });
+      $stage.css({ overflow: 'auto' });
+    }
   }
 
   function renderCanvas(){
@@ -505,43 +516,28 @@
     computeScaleAndTransform();
   }
 
-  // ---- Fullscreen helpers (best-effort; falls back to Fit on mobile browsers) ----
-  function isFullscreen(){
-    var d = document;
-    return !!(d.fullscreenElement || d.webkitFullscreenElement || d.mozFullScreenElement || d.msFullscreenElement);
-  }
-
-  function requestFullscreen(el){
-    if (!el) return false;
-    var fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
-    if (!fn) return false;
-    try { fn.call(el); return true; } catch(e) { return false; }
-  }
-
-  function exitFullscreen(){
-    var d = document;
-    var fn = d.exitFullscreen || d.webkitExitFullscreen || d.mozCancelFullScreen || d.msExitFullscreen;
-    if (!fn) return false;
-    try { fn.call(d); return true; } catch(e) { return false; }
+  // ---- Canvas-only fullscreen (no browser fullscreen / no F11 behavior) ----
+  function setCanvasOnly(on, persist){
+    state.canvasOnly = !!on;
+    try { jQuery('body').toggleClass('sm-remoteCanvasOnly', state.canvasOnly); } catch(e) {}
+    if (persist !== false) {
+      try { window.localStorage.setItem('showmaster_remote_canvasOnly', state.canvasOnly ? '1' : '0'); } catch(e2) {}
+    }
+    // In canvas-only mode we always want fit for phones/tablets
+    if (state.canvasOnly) setFit(true, false);
+    updateFsButton();
+    renderCanvas();
   }
 
   function updateFsButton(){
     try {
-      var on = isFullscreen();
+      var on = !!state.canvasOnly;
       var $b = jQuery('#smRFullscreen');
       if ($b.length) {
         $b.find('i').attr('class', on ? 'fas fa-compress' : 'fas fa-expand');
+        $b.attr('title', on ? 'Exit canvas fullscreen' : 'Canvas fullscreen');
       }
     } catch(e) {}
-  }
-
-  function onFullscreenChange(){
-    var on = isFullscreen();
-    try { jQuery('body').toggleClass('sm-remoteFullscreen', on); } catch(e) {}
-    // In fullscreen, default to fit for best use of the screen
-    if (on) setFit(true, false);
-    updateFsButton();
-    renderCanvas();
   }
 
   function boot(){
@@ -560,30 +556,38 @@
     } catch(eF) { state.fitMode = false; }
     try { jQuery('body').toggleClass('sm-remoteFit', state.fitMode); } catch(eF2) {}
 
+    // restore canvas-only mode
+    try {
+      var co = window.localStorage.getItem('showmaster_remote_canvasOnly')||'0';
+      state.canvasOnly = (String(co) === '1');
+    } catch(eCO) { state.canvasOnly = false; }
+    try { jQuery('body').toggleClass('sm-remoteCanvasOnly', state.canvasOnly); } catch(eCO2) {}
+
     updateZoomReadout();
     updateFsButton();
 
-    // Fullscreen / Fit button
+    // Canvas-only fullscreen toggle button (no browser fullscreen)
     jQuery('#smRFullscreen').off('click').on('click', function(e){
       e.preventDefault();
-      if (isFullscreen()) {
-        exitFullscreen();
-        return;
-      }
-      // Try real fullscreen. If not supported/blocked, fall back to Fit toggle.
-      var ok = requestFullscreen(document.documentElement || document.body);
-      if (!ok) setFit(!state.fitMode);
-      else setFit(true, false);
-      updateFsButton();
+      setCanvasOnly(!state.canvasOnly);
     });
 
-    // Keep UI in sync with browser fullscreen state
-    try {
-      document.addEventListener('fullscreenchange', onFullscreenChange);
-      document.addEventListener('webkitfullscreenchange', onFullscreenChange);
-      document.addEventListener('mozfullscreenchange', onFullscreenChange);
-      document.addEventListener('MSFullscreenChange', onFullscreenChange);
-    } catch(eEv) {}
+    // Exit button (shown only in canvas-only mode)
+    jQuery('#smRCanvasExit').off('click').on('click', function(e){
+      e.preventDefault();
+      setCanvasOnly(false);
+    });
+
+    // ESC exits canvas-only mode
+    jQuery(document).off('keydown.smCanvasOnly').on('keydown.smCanvasOnly', function(e){
+      try {
+        if (!state.canvasOnly) return;
+        var k = e.key || e.keyCode;
+        if (k === 'Escape' || k === 'Esc' || k === 27) {
+          setCanvasOnly(false);
+        }
+      } catch(eK) {}
+    });
 
     jQuery('#smRZoomOut').off('click').on('click', function(e){ e.preventDefault(); setZoom((state.zoomPercent||200) - 25); });
     jQuery('#smRZoomIn').off('click').on('click', function(e){ e.preventDefault(); setZoom((state.zoomPercent||200) + 25); });

@@ -886,6 +886,41 @@ body.sm-remoteFullscreen .sm-remoteBar{
 /* Fit mode: remove scrollbars and let JS scale to viewport */
 body.sm-remoteFit .sm-remoteStage{overflow:hidden;}
 
+/* Canvas-only fullscreen (NOT browser fullscreen): bring only the canvas stage to the front (mobile + desktop) */
+body.sm-remoteCanvasOnly{overflow:hidden;}
+body.sm-remoteCanvasOnly .sm-remoteTop,
+body.sm-remoteCanvasOnly .sm-remoteBar{display:none;}
+body.sm-remoteCanvasOnly .sm-remoteBody{margin-top:0; min-height:100vh;}
+body.sm-remoteCanvasOnly .sm-remoteStage{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+  padding:calc(10px + env(safe-area-inset-top))
+          calc(10px + env(safe-area-inset-right))
+          calc(10px + env(safe-area-inset-bottom))
+          calc(10px + env(safe-area-inset-left));
+  background:rgba(0,0,0,0.92);
+  overflow:hidden;
+}
+
+.sm-canvasOnlyExit{display:none;}
+body.sm-remoteCanvasOnly .sm-canvasOnlyExit{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  position:fixed;
+  top:calc(10px + env(safe-area-inset-top));
+  right:calc(10px + env(safe-area-inset-right));
+  z-index:10000;
+  width:44px;
+  height:44px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,0.18);
+  background:rgba(0,0,0,0.35);
+  backdrop-filter: blur(6px);
+}
+body.sm-remoteCanvasOnly .sm-canvasOnlyExit:hover{background:rgba(255,255,255,0.08);}
+
 .sm-remoteStage{position:relative; flex:1; min-height:60vh; overflow:auto; padding:8px 2px;}
 .sm-remoteScene{position:relative; min-width:100%; min-height:100%;}
 .sm-remoteViewport{position:absolute;}

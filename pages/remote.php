@@ -26,12 +26,15 @@
       </div>
 
       <div class="sm-remoteTools">
-        <button class="sm-zoomBtn sm-fsBtn" id="smRFullscreen" type="button" title="Fullscreen / Fit">
+        <button class="sm-zoomBtn sm-fsBtn" id="smRFullscreen" type="button" title="Canvas fullscreen">
           <i class="fas fa-expand"></i>
         </button>
       </div>
     </div>
     <div id="smRStage" class="sm-remoteStage">
+      <button class="sm-zoomBtn sm-canvasOnlyExit" id="smRCanvasExit" type="button" title="Exit canvas fullscreen">
+        <i class="fas fa-times"></i>
+      </button>
       <div id="smRScene" class="sm-remoteScene">
         <div id="smRViewport" class="sm-canvasViewport sm-remoteViewport">
           <div id="smRCanvas" class="sm-canvas sm-remoteCanvas"></div>
