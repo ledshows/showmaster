@@ -458,8 +458,9 @@
     if (!cmd) return;
 
     // Never call /api/command/ with an empty/invalid command (can crash some FPP builds).
-    // Allow: letters, digits, underscore, dash, dot, colon.
-    if (!/^[A-Za-z0-9_\.\-:]+$/.test(cmd)) {
+    // IMPORTANT: FPP command names often contain slashes (e.g. playlist/start, volume/set, etc.).
+    // Allow: letters, digits, underscore, dash, dot, colon, and '/'.
+    if (!/^[A-Za-z0-9_\.\-:\/]+$/.test(cmd)) {
       try { console.warn("Showmaster Remote: blocked invalid command", cmd); } catch(e) {}
       return;
     }
@@ -471,7 +472,9 @@
     cmdLastAt = now;
     cmdInFlight = true;
 
-    var url = "/api/command/" + encodeURIComponent(cmd);
+    // Do NOT encode the whole command, otherwise '/' becomes %2F and FPP won't match the endpoint.
+    // Keep slashes intact; just strip any leading slash.
+    var url = "/api/command/" + cmd.replace(/^\/+/, "");
     var payload = "[]";
     try { payload = JSON.stringify(argsToArray(args)); } catch(ex) { payload = "[]"; }
 

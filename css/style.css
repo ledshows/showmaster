@@ -894,7 +894,8 @@ body.sm-remoteCanvasOnly .sm-remoteBody{margin-top:0; min-height:100vh;}
 body.sm-remoteCanvasOnly .sm-remoteStage{
   position:fixed;
   inset:0;
-  z-index:9999;
+  /* Use a very high z-index so it sits above the FPP header/nav on all devices */
+  z-index:2147483000;
   padding:calc(10px + env(safe-area-inset-top))
           calc(10px + env(safe-area-inset-right))
           calc(10px + env(safe-area-inset-bottom))
@@ -911,7 +912,7 @@ body.sm-remoteCanvasOnly .sm-canvasOnlyExit{
   position:fixed;
   top:calc(10px + env(safe-area-inset-top));
   right:calc(10px + env(safe-area-inset-right));
-  z-index:10000;
+  z-index:2147483647;
   width:44px;
   height:44px;
   border-radius:14px;
