@@ -150,6 +150,7 @@
     deviceH: 240,
     scale: 1,
     zoomPercent: 200,
+    fitMode: false,
     locked: false
   };
 
@@ -164,8 +165,9 @@
   }
 
   function computeScaleAndTransform(){
-    // Simple zoom: scale = zoomPercent only.
-    // The previous auto-fit logic could effectively cancel zoom on desktop.
+    // Two modes:
+    //  - Zoom: fixed zoom percentage
+    //  - Fit:  auto-scale to fill the available stage (best for phones/tablets)
 
     var $stage = jQuery('#smRStage');
     var $scene = jQuery('#smRScene');
@@ -179,8 +181,21 @@
     if (!isFinite(ph) || ph < (state.deviceH || 240)) ph = (state.deviceH || 240);
     var baseH = ph;
 
-    var z = (state.zoomPercent || 200) / 100.0;
-    if (!isFinite(z) || z <= 0) z = 2;
+    var z;
+    if (state.fitMode) {
+      // Fit inside the stage (minus padding)
+      var cw = $stage.innerWidth ? $stage.innerWidth() : $stage.width();
+      var ch = $stage.innerHeight ? $stage.innerHeight() : $stage.height();
+      if (!isFinite(cw) || cw <= 0) cw = baseW;
+      if (!isFinite(ch) || ch <= 0) ch = baseH;
+      var maxW = Math.max(100, cw - 16);
+      var maxH = Math.max(100, ch - 16);
+      z = Math.min(maxW / baseW, maxH / baseH);
+      if (!isFinite(z) || z <= 0) z = 1;
+    } else {
+      z = (state.zoomPercent || 200) / 100.0;
+      if (!isFinite(z) || z <= 0) z = 2;
+    }
     z = Math.max(0.5, Math.min(3.0, z));
     state.scale = z;
 
@@ -202,7 +217,7 @@
     var th = Math.round(baseH * z) + 16;
     $scene.css({ width: tw + 'px', height: th + 'px', position: 'relative' });
 
-    // Ensure stage scroll works everywhere
+    // Ensure stage scroll works everywhere (fit mode disables scroll via CSS)
     $stage.css({ overflow: 'auto' });
   }
 
@@ -464,11 +479,69 @@
   function clamp(n, a, b){ n = parseInt(n,10); if (isNaN(n)) n = a; return Math.max(a, Math.min(b, n)); }
 
   function setZoom(p){
+    // Switching zoom disables fit mode
+    setFit(false);
     state.zoomPercent = clamp(p, 100, 300);
     try { window.localStorage.setItem('showmaster_remote_zoom', String(state.zoomPercent)); } catch(e) {}
-    try { jQuery('#smRZoomLabel').text(state.zoomPercent + '%'); } catch(e2) {}
+    updateZoomReadout();
     // only update transform (no full re-render, keeps handlers stable)
     computeScaleAndTransform();
+  }
+
+  function updateZoomReadout(){
+    try {
+      if (state.fitMode) jQuery('#smRZoomLabel').text('FIT');
+      else jQuery('#smRZoomLabel').text((state.zoomPercent||200) + '%');
+    } catch(e) {}
+  }
+
+  function setFit(on, persist){
+    state.fitMode = !!on;
+    try { jQuery('body').toggleClass('sm-remoteFit', state.fitMode); } catch(e) {}
+    if (persist !== false) {
+      try { window.localStorage.setItem('showmaster_remote_fit', state.fitMode ? '1' : '0'); } catch(e2) {}
+    }
+    updateZoomReadout();
+    computeScaleAndTransform();
+  }
+
+  // ---- Fullscreen helpers (best-effort; falls back to Fit on mobile browsers) ----
+  function isFullscreen(){
+    var d = document;
+    return !!(d.fullscreenElement || d.webkitFullscreenElement || d.mozFullScreenElement || d.msFullscreenElement);
+  }
+
+  function requestFullscreen(el){
+    if (!el) return false;
+    var fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (!fn) return false;
+    try { fn.call(el); return true; } catch(e) { return false; }
+  }
+
+  function exitFullscreen(){
+    var d = document;
+    var fn = d.exitFullscreen || d.webkitExitFullscreen || d.mozCancelFullScreen || d.msExitFullscreen;
+    if (!fn) return false;
+    try { fn.call(d); return true; } catch(e) { return false; }
+  }
+
+  function updateFsButton(){
+    try {
+      var on = isFullscreen();
+      var $b = jQuery('#smRFullscreen');
+      if ($b.length) {
+        $b.find('i').attr('class', on ? 'fas fa-compress' : 'fas fa-expand');
+      }
+    } catch(e) {}
+  }
+
+  function onFullscreenChange(){
+    var on = isFullscreen();
+    try { jQuery('body').toggleClass('sm-remoteFullscreen', on); } catch(e) {}
+    // In fullscreen, default to fit for best use of the screen
+    if (on) setFit(true, false);
+    updateFsButton();
+    renderCanvas();
   }
 
   function boot(){
@@ -480,7 +553,37 @@
       var z = parseInt(window.localStorage.getItem('showmaster_remote_zoom')||'200', 10);
       if (isFinite(z)) state.zoomPercent = z;
     } catch(eZ) {}
-    try { jQuery('#smRZoomLabel').text((state.zoomPercent||200) + '%'); } catch(eLbl) {}
+    // restore fit mode (best for phones/tablets)
+    try {
+      var f = window.localStorage.getItem('showmaster_remote_fit')||'0';
+      state.fitMode = (String(f) === '1');
+    } catch(eF) { state.fitMode = false; }
+    try { jQuery('body').toggleClass('sm-remoteFit', state.fitMode); } catch(eF2) {}
+
+    updateZoomReadout();
+    updateFsButton();
+
+    // Fullscreen / Fit button
+    jQuery('#smRFullscreen').off('click').on('click', function(e){
+      e.preventDefault();
+      if (isFullscreen()) {
+        exitFullscreen();
+        return;
+      }
+      // Try real fullscreen. If not supported/blocked, fall back to Fit toggle.
+      var ok = requestFullscreen(document.documentElement || document.body);
+      if (!ok) setFit(!state.fitMode);
+      else setFit(true, false);
+      updateFsButton();
+    });
+
+    // Keep UI in sync with browser fullscreen state
+    try {
+      document.addEventListener('fullscreenchange', onFullscreenChange);
+      document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+      document.addEventListener('mozfullscreenchange', onFullscreenChange);
+      document.addEventListener('MSFullscreenChange', onFullscreenChange);
+    } catch(eEv) {}
 
     jQuery('#smRZoomOut').off('click').on('click', function(e){ e.preventDefault(); setZoom((state.zoomPercent||200) - 25); });
     jQuery('#smRZoomIn').off('click').on('click', function(e){ e.preventDefault(); setZoom((state.zoomPercent||200) + 25); });

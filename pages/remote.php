@@ -24,6 +24,12 @@
         <span id="smRZoomLabel" class="sm-zoomRead">200%</span>
         <button class="sm-zoomBtn" id="smRZoomIn" type="button">+</button>
       </div>
+
+      <div class="sm-remoteTools">
+        <button class="sm-zoomBtn sm-fsBtn" id="smRFullscreen" type="button" title="Fullscreen / Fit">
+          <i class="fas fa-expand"></i>
+        </button>
+      </div>
     </div>
     <div id="smRStage" class="sm-remoteStage">
       <div id="smRScene" class="sm-remoteScene">

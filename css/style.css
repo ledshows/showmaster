@@ -865,6 +865,27 @@
 .sm-zoomBtn:hover{background:rgba(255,255,255,0.06);}
 .sm-zoomRead{min-width:54px; text-align:center; font-weight:800;}
 
+/* Extra tools (e.g. fullscreen/fit) */
+.sm-remoteTools{display:flex; align-items:center; gap:8px;}
+.sm-fsBtn i{pointer-events:none;}
+
+/* Fullscreen polish (hide topbar, make stage fill screen) */
+body.sm-remoteFullscreen .sm-remoteTop{display:none;}
+body.sm-remoteFullscreen .sm-remoteBody{margin-top:0; min-height:100vh;}
+body.sm-remoteFullscreen .sm-remoteStage{min-height:calc(100vh - 74px); padding:8px;}
+body.sm-remoteFullscreen .sm-remoteBar{
+  position:sticky;
+  top:0;
+  z-index:20;
+  padding:8px 10px;
+  border-radius:16px;
+  background:rgba(0,0,0,0.28);
+  backdrop-filter: blur(6px);
+}
+
+/* Fit mode: remove scrollbars and let JS scale to viewport */
+body.sm-remoteFit .sm-remoteStage{overflow:hidden;}
+
 .sm-remoteStage{position:relative; flex:1; min-height:60vh; overflow:auto; padding:8px 2px;}
 .sm-remoteScene{position:relative; min-width:100%; min-height:100%;}
 .sm-remoteViewport{position:absolute;}
