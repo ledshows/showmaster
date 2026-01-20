@@ -260,6 +260,18 @@
         // click actions
         if (w.type==='action') {
           $el.css('cursor','pointer');
+
+          // Better press feedback (mouse + touch)
+          var pressOn = function(){
+            try { $el.addClass('sm-pressed'); } catch(e) {}
+            try { if (navigator && navigator.vibrate) navigator.vibrate(12); } catch(e2) {}
+          };
+          var pressOff = function(){
+            try { $el.removeClass('sm-pressed'); } catch(e) {}
+          };
+          $el.on('mousedown touchstart pointerdown', function(){ pressOn(); });
+          $el.on('mouseup mouseleave touchend touchcancel pointerup pointercancel', function(){ pressOff(); });
+
           $el.on('click', function(e){
             e.preventDefault();
             if (!w.command) { return; }
@@ -272,8 +284,17 @@
             if (state.locked) { return; }
 
             // Normal: send FPP command
-            sendFppCommand(w.command, w.args || {});
-
+            var req = sendFppCommand(w.command, w.args || {});
+            // Visual feedback: flash green on success, red on failure
+            if (req && req.done && req.fail) {
+              req.done(function(){
+                try { $el.removeClass('sm-error').addClass('sm-fired'); } catch(e3) {}
+                setTimeout(function(){ try { $el.removeClass('sm-fired'); } catch(e4) {} }, 220);
+              }).fail(function(){
+                try { $el.removeClass('sm-fired').addClass('sm-error'); } catch(e5) {}
+                setTimeout(function(){ try { $el.removeClass('sm-error'); } catch(e6) {} }, 320);
+              });
+            }
           });
         }
 
@@ -440,12 +461,11 @@
     if (typeof args === 'object') {
       var out = [];
       try {
+        // IMPORTANT: Do NOT sort keys.
+        // FPP's CommandToJSON (and BigButtons-style configs) rely on argument order.
+        // Sorting breaks commands like "Start Playlist" where args are ordered.
         var ks = Object.keys(args);
-        ks.sort();
-        for (var i=0;i<ks.length;i++) {
-          var k = ks[i];
-          out.push(String(args[k]));
-        }
+        for (var i=0;i<ks.length;i++) out.push(String(args[ks[i]]));
       } catch(e) {}
       return out;
     }
@@ -457,10 +477,10 @@
     cmd = cmd.replace(/^\s+|\s+$/g, "");
     if (!cmd) return;
 
-    // Never call /api/command/ with an empty/invalid command (can crash some FPP builds).
-    // IMPORTANT: FPP command names often contain slashes (e.g. playlist/start, volume/set, etc.).
-    // Allow: letters, digits, underscore, dash, dot, colon, and '/'.
-    if (!/^[A-Za-z0-9_\.\-:\/]+$/.test(cmd)) {
+    // Never call /api/command/ with an empty/invalid command.
+    // FPP command names often contain SPACES and sometimes slashes.
+    // We allow a wide printable set and rely on safe URL encoding of each segment.
+    if (/[\0-\x1F\x7F]/.test(cmd) || cmd.indexOf('..') !== -1 || cmd.indexOf('\\') !== -1) {
       try { console.warn("Showmaster Remote: blocked invalid command", cmd); } catch(e) {}
       return;
     }
@@ -477,6 +497,7 @@
     // Some builds also accept POST(JSON array), so we fallback to POST if GET fails.
 
     // Build URL safely: encode each path segment, keep slashes as separators.
+    // This supports commands like "Start Playlist" (space) and "playlist/start" (slash).
     var clean = cmd.replace(/^\/+/, "");
     var segs = clean.split('/');
     var encCmd = [];
@@ -484,7 +505,8 @@
       if (segs[i] === '') continue;
       encCmd.push(encodeURIComponent(segs[i]));
     }
-    var url = "/api/command/" + encCmd.join('/');
+    var cmdPath = encCmd.join('/');
+    var url = "/api/command/" + cmdPath;
 
     var arr = [];
     try { arr = argsToArray(args); } catch(eA) { arr = []; }
@@ -494,26 +516,55 @@
 
     function done(){ cmdInFlight = false; }
 
+    // Resolve on success of either GET or POST fallback
+    var dfd = jQuery.Deferred ? jQuery.Deferred() : null;
+
+    function resolveOk(data){
+      try { if (dfd) dfd.resolve(data); } catch(e) {}
+    }
+    function rejectErr(err){
+      try { if (dfd) dfd.reject(err); } catch(e) {}
+    }
+
     // 1) Try GET first
-    return jQuery.ajax({
+    jQuery.ajax({
       url: url,
       method: "GET",
       cache: false,
       timeout: 5000
-    }).fail(function(){
-      // 2) Fallback: POST JSON array (keeps command path unencoded except segment encoding)
+    }).done(function(r){
+      resolveOk(r);
+    }).fail(function(err){
+      // 2) Fallback: POST JSON array (command path MUST be encoded)
       var payload = "[]";
       try { payload = JSON.stringify(argsToArray(args)); } catch(ex) { payload = "[]"; }
-      var postUrl = "/api/command/" + clean;
-      return jQuery.ajax({
+      var postUrl = "/api/command/" + cmdPath;
+      jQuery.ajax({
         url: postUrl,
         method: "POST",
         contentType: "application/json",
         processData: false,
         data: payload,
         timeout: 5000
-      });
-    }).always(done);
+      }).done(function(r2){
+        resolveOk(r2);
+      }).fail(function(err2){
+        rejectErr(err2);
+      }).always(done);
+    }).always(function(){
+      // If GET succeeded, clear inFlight here
+      // If GET failed, POST handler clears it
+      if (!dfd) done();
+      else {
+        // Avoid double-clear: if POST started, it will clear in .always(done)
+        // If GET succeeded, clear now.
+        try {
+          if (dfd.state && dfd.state() === 'resolved') done();
+        } catch(e3){ done(); }
+      }
+    });
+
+    return dfd ? dfd.promise() : null;
   }
 
   function clamp(n, a, b){ n = parseInt(n,10); if (isNaN(n)) n = a; return Math.max(a, Math.min(b, n)); }
