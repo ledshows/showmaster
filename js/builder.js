@@ -748,6 +748,13 @@ function makeInteractive($el, w) {
     return 'fa fa-solid ' + style;
   }
 
+  // Return the FA style token for an icon name (e.g. "fas" or "fab").
+  // This is used to persist style in JSON so the firmware can pick the correct font.
+  function smFaStyleFor(name) {
+    var m = _smFaStyleMap();
+    return (m && m[name]) ? m[name] : 'fas';
+  }
+
   function smFaHtml(name, px) {
     if (!name) return '';
     var cls = smFaClassFor(name);
@@ -797,6 +804,8 @@ function makeInteractive($el, w) {
       var w2 = widgetById(state.selectedId);
       if (!w2 || (w2.type!=="action" && w2.type!=="tab")) return;
       w2.icon = icon;
+      // Persist icon style so the firmware can pick the correct FA font (solid vs brands).
+      w2.iconStyle = smFaStyleFor(icon);
       $("#smIconValue").val(icon);
       try { if ($("#smIconModal").modal) { $("#smIconModal").modal("hide"); } else if (window.bootstrap && window.bootstrap.Modal) { (window.bootstrap.Modal.getInstance(document.getElementById("smIconModal")) || new window.bootstrap.Modal(document.getElementById("smIconModal"))).hide(); } } catch(e) {}
       renderCanvas(); renderProps();
@@ -991,6 +1000,7 @@ function makeInteractive($el, w) {
       w: 120, h: 44,
       label: "Start Show",
       icon: "play",
+      iconStyle: smFaStyleFor("play"),
       iconSize: 24,
       textSize: 14,
       command: "",
@@ -1010,6 +1020,7 @@ function makeInteractive($el, w) {
       w: 120, h: 44,
       label: "Lock",
       icon: "lock",
+      iconStyle: smFaStyleFor("lock"),
       iconSize: 24,
       textSize: 14,
       // Local lock commands (handled locally on the Showmaster / Remote page)
@@ -1045,6 +1056,7 @@ function makeInteractive($el, w) {
       w: 120, h: 44,
       label: "",
       icon: "columns",
+      iconStyle: smFaStyleFor("columns"),
       iconSize: 22,
       textSize: 14,
       targetPageId: tgt
@@ -1114,6 +1126,14 @@ function makeInteractive($el, w) {
     // Ensure each page has its own background
     for (var i=0;i<(state.pages||[]).length;i++) {
       if (!state.pages[i].bg) state.pages[i].bg = (state.device.bg || '#070a12');
+      // Backfill iconStyle for existing configs (so brands icons work on device).
+      var ws = state.pages[i].widgets || [];
+      for (var j=0;j<ws.length;j++) {
+        var w = ws[j];
+        if (w && w.icon && typeof w.iconStyle === 'undefined') {
+          try { w.iconStyle = smFaStyleFor(String(w.icon)); } catch(eIS) {}
+        }
+      }
     }
     state.selectedId = null;
     // Set page background
