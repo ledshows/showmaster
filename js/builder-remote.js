@@ -472,22 +472,48 @@
     cmdLastAt = now;
     cmdInFlight = true;
 
-    // Do NOT encode the whole command, otherwise '/' becomes %2F and FPP won't match the endpoint.
-    // Keep slashes intact; just strip any leading slash.
-    var url = "/api/command/" + cmd.replace(/^\/+/, "");
-    var payload = "[]";
-    try { payload = JSON.stringify(argsToArray(args)); } catch(ex) { payload = "[]"; }
+    // FPP's /api/command/ endpoint is most reliable with GET + args as URL segments.
+    // Example: /api/command/StartPlaylist/MyPlaylist
+    // Some builds also accept POST(JSON array), so we fallback to POST if GET fails.
 
+    // Build URL safely: encode each path segment, keep slashes as separators.
+    var clean = cmd.replace(/^\/+/, "");
+    var segs = clean.split('/');
+    var encCmd = [];
+    for (var i=0;i<segs.length;i++) {
+      if (segs[i] === '') continue;
+      encCmd.push(encodeURIComponent(segs[i]));
+    }
+    var url = "/api/command/" + encCmd.join('/');
+
+    var arr = [];
+    try { arr = argsToArray(args); } catch(eA) { arr = []; }
+    for (var j=0;j<arr.length;j++) {
+      url += "/" + encodeURIComponent(String(arr[j]));
+    }
+
+    function done(){ cmdInFlight = false; }
+
+    // 1) Try GET first
     return jQuery.ajax({
       url: url,
-      method: "POST",
-      contentType: "application/json",
-      processData: false,
-      data: payload,
+      method: "GET",
+      cache: false,
       timeout: 5000
-    }).always(function(){
-      cmdInFlight = false;
-    });
+    }).fail(function(){
+      // 2) Fallback: POST JSON array (keeps command path unencoded except segment encoding)
+      var payload = "[]";
+      try { payload = JSON.stringify(argsToArray(args)); } catch(ex) { payload = "[]"; }
+      var postUrl = "/api/command/" + clean;
+      return jQuery.ajax({
+        url: postUrl,
+        method: "POST",
+        contentType: "application/json",
+        processData: false,
+        data: payload,
+        timeout: 5000
+      });
+    }).always(done);
   }
 
   function clamp(n, a, b){ n = parseInt(n,10); if (isNaN(n)) n = a; return Math.max(a, Math.min(b, n)); }
@@ -523,6 +549,23 @@
   function setCanvasOnly(on, persist){
     state.canvasOnly = !!on;
     try { jQuery('body').toggleClass('sm-remoteCanvasOnly', state.canvasOnly); } catch(e) {}
+
+    // Physically move the stage to <body> so "fixed" truly covers the viewport
+    // even if FPP wraps plugin pages in transformed containers (mobile Safari / some themes).
+    try {
+      var $stage = jQuery('#smRStage');
+      var $holder = jQuery('#smRStageHolder');
+      if ($stage.length && $holder.length) {
+        if (state.canvasOnly) {
+          // Detach and append to body (top-most stacking context)
+          if (!$stage.data('sm-home')) $stage.data('sm-home', '1');
+          jQuery('body').append($stage);
+        } else {
+          // Put it back where it belongs
+          $holder.append($stage);
+        }
+      }
+    } catch(eMove) {}
     if (persist !== false) {
       try { window.localStorage.setItem('showmaster_remote_canvasOnly', state.canvasOnly ? '1' : '0'); } catch(e2) {}
     }
@@ -543,10 +586,28 @@
     } catch(e) {}
   }
 
+  // Try to rename the FPP page heading (FPP uses plugin name for all plugin pages).
+  // This keeps the Remote page from showing "Showmaster Builder" at the top.
+  function setFppPageHeading(txt){
+    try {
+      txt = (txt == null) ? '' : String(txt);
+      if (!txt) return;
+      var $cands = jQuery('.pageTitle, #pageTitle, .contentTitle, #contentTitle, h1, h2');
+      if (!$cands || !$cands.length) return;
+      $cands.each(function(){
+        var $el = jQuery(this);
+        var t = ($el.text() || '').trim();
+        if (t === 'Showmaster Builder' || t === 'Showmaster') {
+          $el.text(txt);
+        }
+      });
+    } catch(e) {}
+  }
+
   function boot(){
     if (!window.jQuery) { try { alert('jQuery missing'); } catch(e){} return; }
-    // stage needs positioning for centering
-    try { jQuery('#smRStage').css('position','relative'); } catch(e){}
+    // Ensure the FPP page heading matches the Remote page
+    setFppPageHeading('Showmaster Remote');
     // restore zoom
     try {
       var z = parseInt(window.localStorage.getItem('showmaster_remote_zoom')||'200', 10);
@@ -559,12 +620,12 @@
     } catch(eF) { state.fitMode = false; }
     try { jQuery('body').toggleClass('sm-remoteFit', state.fitMode); } catch(eF2) {}
 
-    // restore canvas-only mode
+    // restore canvas-only mode (also moves stage to <body> if enabled)
     try {
       var co = window.localStorage.getItem('showmaster_remote_canvasOnly')||'0';
       state.canvasOnly = (String(co) === '1');
     } catch(eCO) { state.canvasOnly = false; }
-    try { jQuery('body').toggleClass('sm-remoteCanvasOnly', state.canvasOnly); } catch(eCO2) {}
+    setCanvasOnly(state.canvasOnly, false);
 
     updateZoomReadout();
     updateFsButton();

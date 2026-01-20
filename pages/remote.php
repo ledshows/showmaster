@@ -11,6 +11,7 @@
   <div class="sm-topbar sm-remoteTop">
     <div class="sm-brand">
       <div class="sm-logo"><img src="plugin.php?plugin=showmaster&file=images/showmaster.png&nopage=1" alt="Showmaster" /></div>
+      <div class="sm-subtitle">Showmaster Remote</div>
     </div>
     <div class="sm-remoteHint">
       <a class="sm-remoteLink" href="plugin.php?plugin=showmaster&page=plugin.php" title="Back to Builder">Back to Builder</a>
@@ -31,6 +32,7 @@
         </button>
       </div>
     </div>
+    <div id="smRStageHolder" class="sm-remoteStageHolder">
     <div id="smRStage" class="sm-remoteStage">
       <button class="sm-zoomBtn sm-canvasOnlyExit" id="smRCanvasExit" type="button" title="Exit canvas fullscreen">
         <i class="fas fa-times"></i>
@@ -40,6 +42,7 @@
           <div id="smRCanvas" class="sm-canvas sm-remoteCanvas"></div>
         </div>
       </div>
+    </div>
     </div>
   </div>
 </div>
