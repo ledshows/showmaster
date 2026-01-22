@@ -1,4 +1,4 @@
-// Curated icon list for Showmaster Remote (device-safe)
+// Curated icon list for Showmaster (device-safe)
 // This list is intentionally limited to icons that are guaranteed to render on the ESP (LVGL symbols).
 var faIcons = [
   {

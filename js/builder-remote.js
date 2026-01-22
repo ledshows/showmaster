@@ -481,7 +481,7 @@
     // FPP command names often contain SPACES and sometimes slashes.
     // We allow a wide printable set and rely on safe URL encoding of each segment.
     if (/[\0-\x1F\x7F]/.test(cmd) || cmd.indexOf('..') !== -1 || cmd.indexOf('\\') !== -1) {
-      try { console.warn("Showmaster Remote: blocked invalid command", cmd); } catch(e) {}
+      try { console.warn("Showmaster: blocked invalid command", cmd); } catch(e) {}
       return;
     }
 
@@ -658,7 +658,7 @@
   function boot(){
     if (!window.jQuery) { try { alert('jQuery missing'); } catch(e){} return; }
     // Ensure the FPP page heading matches the Remote page
-    setFppPageHeading('Showmaster Remote');
+    setFppPageHeading('Showmaster');
     // restore zoom
     try {
       var z = parseInt(window.localStorage.getItem('showmaster_remote_zoom')||'200', 10);

@@ -6,7 +6,9 @@
   var DEVICE_H = 240;
   var GRID = 10;
 
-  var state = {
+  var lastRotationNotice = null;
+
+var state = {
     device: { w: DEVICE_W, h: DEVICE_H, bg: "#0b0f14" },
     pages: [],            // [{id,name,h,widgets:[]}]
     activePageId: null,
@@ -48,6 +50,7 @@
 
   function applyRotation(deg, skipRender){
     deg = normalizeRotation(deg);
+    var prevRot = state.rotation;
     state.rotation = deg;
 
     // remember previous device height so we can shrink the page height when rotating back
@@ -90,6 +93,19 @@
       $('#smRotSeg button').removeClass('active');
       $('#smRotSeg button[data-rot="'+deg+'"]').addClass('active');
     } catch(e2) {}
+
+    
+    // Show calibration notice whenever rotation changes from the builder.
+    try {
+      if (prevRot !== deg) {
+        var el = document.getElementById('smRotationNoticeModal');
+        if (el && window.bootstrap && bootstrap.Modal) {
+          new bootstrap.Modal(el).show();
+        } else {
+          alert('Touch calibration required\n\nAfter changing rotation, two crosses will appear on the Showmaster screen. Tap both crosses to calibrate the touchscreen for the new orientation.');
+        }
+      }
+    } catch(eN) {}
 
     if (!skipRender) {
       renderPageTabs();
