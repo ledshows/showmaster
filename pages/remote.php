@@ -4,14 +4,11 @@
 ?>
 <link rel="stylesheet" href="plugin.php?plugin=showmaster&file=css/style.css&nopage=1" />
 <link rel="stylesheet" href="/css/fontawesome/css/all.min.css" />
-<link rel="stylesheet" href="/css/font-awesome/css/font-awesome.min.css" />
-<link rel="stylesheet" href="/css/font-awesome.min.css" />
-<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.4/css/all.css" />
 <div class="sm-wrap sm-remoteWrap">
   <div class="sm-topbar sm-remoteTop">
     <div class="sm-brand">
       <div class="sm-logo"><img src="plugin.php?plugin=showmaster&file=images/showmaster.png&nopage=1" alt="Showmaster" /></div>
-      <div class="sm-subtitle">Showmaster Remote</div>
+      <div class="sm-subtitle">Showmaster</div>
     </div>
     <div class="sm-remoteHint">
       <a class="sm-remoteLink" href="plugin.php?plugin=showmaster&page=plugin.php" title="Back to Builder">Back to Builder</a>

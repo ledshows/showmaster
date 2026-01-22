@@ -4,9 +4,6 @@
 <link rel="stylesheet" href="plugin.php?plugin=showmaster&file=css/style.css&nopage=1" />
 
 <link rel="stylesheet" href="/css/fontawesome/css/all.min.css" />
-<link rel="stylesheet" href="/css/font-awesome/css/font-awesome.min.css" />
-<link rel="stylesheet" href="/css/font-awesome.min.css" />
-<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.4/css/all.css" />
 <div class="sm-wrap">
   <div class="sm-topbar">
     <div class="sm-brand">
@@ -31,6 +28,10 @@
           <button class="buttons btn-outline-light" id="smScan" type="button" title="Scan network for Showmaster">Scan</button>
           <button class="buttons btn-primary" id="smUpload" type="button">Push to Showmaster</button>
         </div>
+          <div class="sm-scanStatusRow" id="smScanStatusRow" style="display:none;">
+            <div class="sm-scanStatusText" id="smScanStatusText">Scanning...</div>
+            <div class="sm-scanBar"><div class="sm-scanBarFill" id="smScanBarFill" style="width:0%;"></div></div>
+          </div>
       </div>
 
       <!-- hidden file input used by the Load button -->

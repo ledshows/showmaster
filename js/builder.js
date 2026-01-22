@@ -230,18 +230,6 @@ function widgetById(id) {
     if (typeof w.radius === "undefined") w.radius = 10;
     if (typeof w.textSize === "undefined") w.textSize = 12;
     if (typeof w.iconSize === "undefined") w.iconSize = 14;
-    // Ensure iconStyle is present when an icon is used so firmware can choose the right FA font.
-    // Values are typically: fas / far / fab.
-    if (w.icon && typeof w.icon === "string") {
-      if (!w.iconStyle || typeof w.iconStyle !== "string") {
-        try {
-          var m = _smFaStyleMap();
-          w.iconStyle = m[w.icon] || "fas";
-        } catch (e) {
-          w.iconStyle = "fas";
-        }
-      }
-    }
     // Allow empty labels (icon-only buttons). Only set a default if label is undefined.
     if (typeof w.label === "undefined" && (w.type === "action" || w.type === "tab")) w.label = "";
     if (!w.source && w.type === "status") w.source = "player.statusText";
@@ -760,6 +748,13 @@ function makeInteractive($el, w) {
     return 'fa fa-solid ' + style;
   }
 
+  // Return the FA style token for an icon name (e.g. "fas" or "fab").
+  // This is used to persist style in JSON so the firmware can pick the correct font.
+  function smFaStyleFor(name) {
+    var m = _smFaStyleMap();
+    return (m && m[name]) ? m[name] : 'fas';
+  }
+
   function smFaHtml(name, px) {
     if (!name) return '';
     var cls = smFaClassFor(name);
@@ -809,8 +804,8 @@ function makeInteractive($el, w) {
       var w2 = widgetById(state.selectedId);
       if (!w2 || (w2.type!=="action" && w2.type!=="tab")) return;
       w2.icon = icon;
-      // Persist the style (fas/far/fab) so the remote firmware can choose the correct embedded font.
-      try { w2.iconStyle = _smFaStyleMap()[icon] || "fas"; } catch(e){ w2.iconStyle = "fas"; }
+      // Persist icon style so the firmware can pick the correct FA font (solid vs brands).
+      w2.iconStyle = smFaStyleFor(icon);
       $("#smIconValue").val(icon);
       try { if ($("#smIconModal").modal) { $("#smIconModal").modal("hide"); } else if (window.bootstrap && window.bootstrap.Modal) { (window.bootstrap.Modal.getInstance(document.getElementById("smIconModal")) || new window.bootstrap.Modal(document.getElementById("smIconModal"))).hide(); } } catch(e) {}
       renderCanvas(); renderProps();
@@ -1005,6 +1000,7 @@ function makeInteractive($el, w) {
       w: 120, h: 44,
       label: "Start Show",
       icon: "play",
+      iconStyle: smFaStyleFor("play"),
       iconSize: 24,
       textSize: 14,
       command: "",
@@ -1024,6 +1020,7 @@ function makeInteractive($el, w) {
       w: 120, h: 44,
       label: "Lock",
       icon: "lock",
+      iconStyle: smFaStyleFor("lock"),
       iconSize: 24,
       textSize: 14,
       // Local lock commands (handled locally on the Showmaster / Remote page)
@@ -1059,6 +1056,7 @@ function makeInteractive($el, w) {
       w: 120, h: 44,
       label: "",
       icon: "columns",
+      iconStyle: smFaStyleFor("columns"),
       iconSize: 22,
       textSize: 14,
       targetPageId: tgt
@@ -1128,6 +1126,14 @@ function makeInteractive($el, w) {
     // Ensure each page has its own background
     for (var i=0;i<(state.pages||[]).length;i++) {
       if (!state.pages[i].bg) state.pages[i].bg = (state.device.bg || '#070a12');
+      // Backfill iconStyle for existing configs (so brands icons work on device).
+      var ws = state.pages[i].widgets || [];
+      for (var j=0;j<ws.length;j++) {
+        var w = ws[j];
+        if (w && w.icon && typeof w.iconStyle === 'undefined') {
+          try { w.iconStyle = smFaStyleFor(String(w.icon)); } catch(eIS) {}
+        }
+      }
     }
     state.selectedId = null;
     // Set page background
@@ -1344,34 +1350,107 @@ function makeInteractive($el, w) {
     // Scan for Showmaster on local network (best-effort)
     $("#smScan").off("click").on("click", function(e){
       e.preventDefault();
-      var $btn = $(this);
-      $btn.prop('disabled', true).text('Scanning...');
-      dbg('Scan start');
-      // IMPORTANT: do NOT use &file= for PHP endpoints.
-      // FPP serves plugin files via the file= handler as plain text (PHP won't execute).
-      // Use a real plugin page endpoint instead.
-      $.getJSON('plugin.php?plugin=showmaster&page=pages/api.php&cmd=scan&nopage=1')
-        .done(function(res){
-          dbg('Scan response: ' + JSON.stringify(res));
-          if (res && res.ok && res.hosts && res.hosts.length) {
-            var hosts = res.hosts;
 
-            // Use a single IP input + datalist suggestions (no second field / dropdown).
-            var $ip = $('#smDeviceIp');
-            var list = document.getElementById('smScannedIps');
-            if (list) {
-              // Clear and rebuild suggestions (unique)
-              while (list.firstChild) list.removeChild(list.firstChild);
-              var seen = {};
-              hosts.forEach(function(h){
-                var v = (h && h.host) ? String(h.host).trim() : '';
-                if (!v || seen[v]) return;
-                seen[v] = true;
-                var opt = document.createElement('option');
-                opt.value = v;
-                list.appendChild(opt);
-              });
-            }
+      var $btn = $(this);
+      var $row = $("#smScanStatusRow");
+      var $txt = $("#smScanStatusText");
+      var $bar = $("#smScanBarFill");
+
+      function setProgress(p){
+        p = Math.max(0, Math.min(100, p|0));
+        if ($bar.length) $bar.css("width", p + "%");
+      }
+      function setStatus(s){
+        if ($txt.length) $txt.text(s);
+      }
+      function showStatus(show){
+        if ($row.length) $row.toggle(!!show);
+      }
+
+      $btn.prop('disabled', true).text('Scanning...');
+      showStatus(true);
+      setProgress(0);
+      setStatus("Scanning 192.168.0.0 - 192.168.255.255 (0%)");
+
+      var allHosts = {};
+      var foundList = [];
+
+      // Scan /24 subnets: 192.168.0 .. 192.168.255
+      // Keep it gentle: 4 concurrent subnet scans.
+      var nextSubnet = 0;
+      var done = 0;
+      var concurrency = 4;
+      var stopped = false;
+
+      function updateUi(){
+        var pct = Math.round((done / 256) * 100);
+        setProgress(pct);
+        setStatus("Scanning 192.168.*.* (" + pct + "%) — found " + foundList.length);
+      }
+
+      function addHosts(hosts){
+        if (!hosts || !hosts.length) return;
+        hosts.forEach(function(h){
+          var v = (h && h.host) ? String(h.host).trim() : '';
+          if (!v || allHosts[v]) return;
+          allHosts[v] = true;
+          foundList.push({host: v});
+        });
+      }
+
+      function finish(){
+        // Fill datalist + pick first
+        var list = document.getElementById('smScannedIps');
+        if (list) {
+          while (list.firstChild) list.removeChild(list.firstChild);
+          foundList.forEach(function(h){
+            var opt = document.createElement('option');
+            opt.value = h.host;
+            list.appendChild(opt);
+          });
+        }
+        if (foundList.length) {
+          $('#smDeviceIp').val(foundList[0].host);
+          toast(foundList.length === 1 ? ("Found: " + foundList[0].host) : ("Found " + foundList.length + " Showmasters. Click the IP field to choose."));
+        } else {
+          toast("Not found on 192.168.*.* (did you power on Showmaster?)", true);
+        }
+
+        setProgress(100);
+        setStatus("Scan complete — found " + foundList.length);
+        $btn.prop('disabled', false).text('Scan');
+        setTimeout(function(){ showStatus(false); }, 2500);
+      }
+
+      function scanOne(subnetIdx){
+        var sn = "192.168." + subnetIdx;
+        return $.getJSON('plugin.php?plugin=showmaster&page=pages/api.php&cmd=scan&nopage=1&subnet=' + encodeURIComponent(sn))
+          .done(function(res){
+            if (res && res.hosts && res.hosts.length) addHosts(res.hosts);
+          })
+          .fail(function(){
+            // ignore failures per subnet (keep going)
+          })
+          .always(function(){
+            done++;
+            updateUi();
+          });
+      }
+
+      function pump(){
+        if (stopped) return;
+        if (done >= 256) return finish();
+
+        while (nextSubnet < 256 && concurrency > 0) {
+          // start a job
+          concurrency--;
+          var idx = nextSubnet++;
+          scanOne(idx).always(function(){ concurrency++; pump(); });
+        }
+      }
+
+      pump();
+    });}
 
             // Pick first result
             if ($ip.length) $ip.val(hosts[0].host);
