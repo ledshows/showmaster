@@ -1347,7 +1347,8 @@ function makeInteractive($el, w) {
     $("#smUpload").off("click").on("click", function(e){ e.preventDefault(); pushToShowmaster(); });
     // upload target selector removed
 
-    // Scan for Showmaster on local network (best-effort)
+    // Scan for Showmaster on 192.168.0.0 - 192.168.255.255
+    // UI shows progress 0-100% and keeps it responsive by scanning per /24 subnet.
     $("#smScan").off("click").on("click", function(e){
       e.preventDefault();
 
@@ -1358,7 +1359,7 @@ function makeInteractive($el, w) {
 
       function setProgress(p){
         p = Math.max(0, Math.min(100, p|0));
-        if ($bar.length) $bar.css("width", p + "%");
+        if ($bar.length) $bar.css('width', p + '%');
       }
       function setStatus(s){
         if ($txt.length) $txt.text(s);
@@ -1370,22 +1371,19 @@ function makeInteractive($el, w) {
       $btn.prop('disabled', true).text('Scanning...');
       showStatus(true);
       setProgress(0);
-      setStatus("Scanning 192.168.0.0 - 192.168.255.255 (0%)");
+      setStatus('Scanning 192.168.*.* (0%) — found 0');
 
       var allHosts = {};
       var foundList = [];
 
-      // Scan /24 subnets: 192.168.0 .. 192.168.255
-      // Keep it gentle: 4 concurrent subnet scans.
       var nextSubnet = 0;
       var done = 0;
-      var concurrency = 4;
-      var stopped = false;
+      var concurrency = 4; // gentle
 
       function updateUi(){
         var pct = Math.round((done / 256) * 100);
         setProgress(pct);
-        setStatus("Scanning 192.168.*.* (" + pct + "%) — found " + foundList.length);
+        setStatus('Scanning 192.168.*.* (' + pct + '%) — found ' + foundList.length);
       }
 
       function addHosts(hosts){
@@ -1411,25 +1409,22 @@ function makeInteractive($el, w) {
         }
         if (foundList.length) {
           $('#smDeviceIp').val(foundList[0].host);
-          toast(foundList.length === 1 ? ("Found: " + foundList[0].host) : ("Found " + foundList.length + " Showmasters. Click the IP field to choose."));
+          toast(foundList.length === 1 ? ('Found: ' + foundList[0].host) : ('Found ' + foundList.length + ' Showmasters. Click the IP field to choose.'));
         } else {
-          toast("Not found on 192.168.*.* (did you power on Showmaster?)", true);
+          toast('Not found on 192.168.*.* (did you power on Showmaster?)', true);
         }
 
         setProgress(100);
-        setStatus("Scan complete — found " + foundList.length);
+        setStatus('Scan complete — found ' + foundList.length);
         $btn.prop('disabled', false).text('Scan');
         setTimeout(function(){ showStatus(false); }, 2500);
       }
 
       function scanOne(subnetIdx){
-        var sn = "192.168." + subnetIdx;
+        var sn = '192.168.' + subnetIdx;
         return $.getJSON('plugin.php?plugin=showmaster&page=pages/api.php&cmd=scan&nopage=1&subnet=' + encodeURIComponent(sn))
           .done(function(res){
             if (res && res.hosts && res.hosts.length) addHosts(res.hosts);
-          })
-          .fail(function(){
-            // ignore failures per subnet (keep going)
           })
           .always(function(){
             done++;
@@ -1438,35 +1433,19 @@ function makeInteractive($el, w) {
       }
 
       function pump(){
-        if (stopped) return;
         if (done >= 256) return finish();
-
         while (nextSubnet < 256 && concurrency > 0) {
-          // start a job
           concurrency--;
-          var idx = nextSubnet++;
-          scanOne(idx).always(function(){ concurrency++; pump(); });
+          (function(idx){
+            scanOne(idx).always(function(){
+              concurrency++;
+              pump();
+            });
+          })(nextSubnet++);
         }
       }
 
       pump();
-    });}
-
-            // Pick first result
-            if ($ip.length) $ip.val(hosts[0].host);
-
-            toast(hosts.length === 1 ? ('Found: ' + hosts[0].host) : ('Found ' + hosts.length + ' Showmasters. Click the IP field to choose.'));
-          } else {
-            toast('Not found. Try opening Showmaster once, then scan again.', true);
-          }
-        })
-        .fail(function(xhr){
-          var txt = '';
-          try { txt = (xhr && xhr.responseText) ? String(xhr.responseText) : ''; } catch(ex) {}
-          dbg('Scan xhr fail: ' + (xhr ? xhr.status : '0') + ' ' + txt);
-          toast('Scan failed.', true);
-        })
-        .always(function(){ $btn.prop('disabled', false).text('Scan'); });
     });
 
     $("#smDownload").off("click").on("click", function(e){

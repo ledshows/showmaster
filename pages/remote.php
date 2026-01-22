@@ -3,7 +3,8 @@
 // Loads the same plugin config (plugin.showmaster.json) and renders it for mobile/desktop.
 ?>
 <link rel="stylesheet" href="plugin.php?plugin=showmaster&file=css/style.css&nopage=1" />
-<link rel="stylesheet" href="/css/fontawesome/css/all.min.css" />
+<!-- FontAwesome (CDN). FPP paths differ between versions; using CDN avoids MIME/404 issues. -->
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.4/css/all.css" />
 <div class="sm-wrap sm-remoteWrap">
   <div class="sm-topbar sm-remoteTop">
     <div class="sm-brand">

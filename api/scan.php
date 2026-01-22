@@ -1,24 +1,44 @@
 <?php
 // Showmaster discovery for FPP plugin.
-//
-// Modes:
-//  - Fast (default): uses ARP/neigh + small probes (quick).
-//  - Subnet scan: provide ?subnet=192.168.2  (scans 192.168.2.1-254)
-// The UI can loop subnets 192.168.0..255 for a full /16 scan.
+// Goal: return a list of devices without requiring PHP curl extensions.
+// Strategy:
+//  1) Prefer fast host candidates from ARP/neigh tables.
+//  2) Optionally expand to a couple of common show subnets if we can detect them.
 
 error_reporting(0);
 ini_set('display_errors', '0');
 header('Content-Type: application/json');
 
+// Optional: scan a specific /24 subnet, e.g. ?subnet=192.168.5
+$subnet = isset($_GET['subnet']) ? trim($_GET['subnet']) : '';
+
+function valid_subnet_192_168($sn){
+  // Accept: 192.168.X (X 0-255)
+  if (!is_string($sn) || $sn === '') return false;
+  if (!preg_match('/^192\.168\.(\d{1,3})$/', $sn, $m)) return false;
+  $x = intval($m[1]);
+  if ($x < 0 || $x > 255) return false;
+  return true;
+}
+
 $debug = array();
-function dbg_add($s){ global $debug; $debug[] = $s; }
-function json_out($arr) { global $debug; if (!isset($arr['debug'])) $arr['debug'] = $debug; echo json_encode($arr); exit; }
+function dbg_add($s){
+  global $debug;
+  $debug[] = $s;
+}
+
+function json_out($arr) {
+  global $debug;
+  if (!isset($arr['debug'])) $arr['debug'] = $debug;
+  echo json_encode($arr);
+  exit;
+}
 
 function uniq_hosts($hosts) {
   $seen = array();
   $out = array();
   foreach ($hosts as $h) {
-    $k = (isset($h['host']) ? trim($h['host']) : '');
+    $k = isset($h['host']) ? $h['host'] : '';
     if ($k === '' || isset($seen[$k])) continue;
     $seen[$k] = true;
     $out[] = $h;
@@ -34,6 +54,7 @@ function http_ping_showmaster($ip, $timeoutSec) {
   $req = "GET /showmaster/ping HTTP/1.0\r\nHost: $ip\r\nConnection: close\r\n\r\n";
   @fwrite($fp, $req);
   $data = '';
+  // Read a small chunk; we only need to see "pong".
   while (!feof($fp) && strlen($data) < 128) {
     $chunk = @fread($fp, 128);
     if ($chunk === false || $chunk === '') break;
@@ -43,68 +64,107 @@ function http_ping_showmaster($ip, $timeoutSec) {
   return (strpos($data, "pong") !== false);
 }
 
-function cmd_exists($cmd) {
-  $out = @shell_exec("command -v " . escapeshellarg($cmd) . " 2>/dev/null");
-  return ($out && trim($out) !== '');
-}
+// Fast-ish subnet scan without curl: async-connect to :80 in small batches and check /showmaster/ping.
+function scan_subnet($sn){
+  $hosts = array();
+  $timeout = 0.18; // seconds total per batch
+  $batch = 48;
 
-function alive_hosts_in_subnet($subnet3) {
-  // Returns array of IPv4 strings.
-  $subnet3 = trim($subnet3);
-  if (!preg_match('/^\d{1,3}\.\d{1,3}\.\d{1,3}$/', $subnet3)) return array();
+  for ($start = 1; $start <= 254; $start += $batch) {
+    $socks = array();
+    $map = array();
 
-  // Prefer fping if available (fast).
-  if (cmd_exists('fping')) {
-    $cmd = "fping -a -q -g " . escapeshellarg($subnet3 . ".1") . " " . escapeshellarg($subnet3 . ".254") . " 2>/dev/null";
-    $out = @shell_exec($cmd);
-    if ($out) {
-      $ips = preg_split('/\r?\n/', trim($out));
-      $res = array();
-      foreach ($ips as $ip) {
-        $ip = trim($ip);
-        if ($ip && filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) $res[] = $ip;
+    $end = min(254, $start + $batch - 1);
+    for ($i = $start; $i <= $end; $i++) {
+      $ip = $sn . '.' . $i;
+      $errno = 0; $errstr = '';
+      $ctx = stream_context_create();
+      $sock = @stream_socket_client('tcp://' . $ip . ':80', $errno, $errstr, $timeout,
+        STREAM_CLIENT_CONNECT | STREAM_CLIENT_ASYNC_CONNECT, $ctx);
+      if ($sock) {
+        stream_set_blocking($sock, false);
+        $id = (int)$sock;
+        $socks[] = $sock;
+        $map[$id] = $ip;
       }
-      return array_values(array_unique($res));
     }
+
+    if (count($socks) === 0) continue;
+
+    // Wait for connects
+    $w = $socks; $r = null; $e = null;
+    @stream_select($r, $w, $e, 0, (int)($timeout * 1000000));
+
+    // For sockets that are writable, send ping and read a tiny response
+    foreach ($w as $sock) {
+      $ip = $map[(int)$sock];
+      $req = "GET /showmaster/ping HTTP/1.0\r\nHost: $ip\r\nConnection: close\r\n\r\n";
+      @fwrite($sock, $req);
+    }
+
+    // Read responses briefly
+    $deadline = microtime(true) + $timeout;
+    $buf = array();
+    while (microtime(true) < $deadline && count($socks) > 0) {
+      $r = $socks; $w2 = null; $e2 = null;
+      $leftUs = (int)(max(0, ($deadline - microtime(true))) * 1000000);
+      if ($leftUs <= 0) break;
+      $n = @stream_select($r, $w2, $e2, 0, $leftUs);
+      if ($n === false || $n === 0) break;
+      foreach ($r as $sock) {
+        $id = (int)$sock;
+        if (!isset($buf[$id])) $buf[$id] = '';
+        $chunk = @fread($sock, 256);
+        if ($chunk !== false && $chunk !== '') {
+          $buf[$id] .= $chunk;
+          if (strpos($buf[$id], 'pong') !== false) {
+            $hosts[] = array('host' => $map[$id], 'id' => '', 'fw' => '');
+            @fclose($sock);
+            // Remove from socks list
+            $socks = array_values(array_filter($socks, function($s) use ($sock){ return $s !== $sock; }));
+          }
+        }
+      }
+    }
+
+    // Close remaining sockets
+    foreach ($socks as $sock) { @fclose($sock); }
   }
 
-  // Fallback: parallel ping sweep (keeps it reasonably fast).
-  // NOTE: This uses common Linux tools: seq, xargs, ping.
-  $cmd = "seq 1 254 | xargs -n1 -P32 -I{} sh -c 'ping -c1 -W1 " . $subnet3 . ".{} >/dev/null 2>&1 && echo " . $subnet3 . ".{}'";
-  $out = @shell_exec($cmd . " 2>/dev/null");
-  if (!$out) return array();
-  $ips = preg_split('/\r?\n/', trim($out));
-  $res = array();
-  foreach ($ips as $ip) {
-    $ip = trim($ip);
-    if ($ip && filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) $res[] = $ip;
-  }
-  return array_values(array_unique($res));
+  return $hosts;
 }
 
 function read_arp_candidates() {
   $ips = array();
-
+  // /proc/net/arp exists on Linux.
   $arp = @file_get_contents('/proc/net/arp');
   if ($arp) {
     $lines = preg_split('/\r?\n/', trim($arp));
-    foreach ($lines as $i => $ln) {
-      if ($i === 0) continue; // header
-      $p = preg_split('/\s+/', trim($ln));
-      if (count($p) >= 1) {
-        $ip = trim($p[0]);
-        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) $ips[] = $ip;
+    // Skip header
+    for ($i=1; $i<count($lines); $i++) {
+      $parts = preg_split('/\s+/', trim($lines[$i]));
+      if (count($parts) >= 4) {
+        $ip = $parts[0];
+        $flags = $parts[2];
+        $mac = $parts[3];
+        if ($ip && $mac && $mac !== '00:00:00:00:00:00' && $flags !== '0x0') {
+          $ips[] = $ip;
+        }
       }
     }
   }
 
+  // ip neigh is sometimes more complete
   $neigh = @shell_exec('ip -4 neigh 2>/dev/null');
   if ($neigh) {
     $lines = preg_split('/\r?\n/', trim($neigh));
     foreach ($lines as $ln) {
       if (!$ln) continue;
+      // Format: 192.168.2.119 dev eth0 lladdr .. REACHABLE
       $p = preg_split('/\s+/', trim($ln));
-      if (count($p) >= 1 && filter_var($p[0], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) $ips[] = $p[0];
+      if (count($p) >= 1 && filter_var($p[0], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+        $ips[] = $p[0];
+      }
     }
   }
 
@@ -119,68 +179,52 @@ function add_subnet(&$subnets, $ip) {
   $subnets[] = $p[0] . '.' . $p[1] . '.' . $p[2];
 }
 
-function fast_scan() {
-  $candidates = read_arp_candidates();
-  $subnets = array();
-
-  // Detect local IP of the FPP device
-  $ifconfig = @shell_exec("ip -4 addr show 2>/dev/null");
-  if ($ifconfig) {
-    preg_match_all('/inet\s+(\d+\.\d+\.\d+\.\d+)\//', $ifconfig, $m);
-    if (isset($m[1])) {
-      foreach ($m[1] as $ip) add_subnet($subnets, $ip);
-    }
-  }
-
-  // Default common show subnet
-  if (count($subnets) === 0) $subnets[] = '192.168.2';
-  $subnets = array_values(array_unique($subnets));
-
-  if (count($candidates) === 0) {
-    // Quick probe a limited range to avoid long waits.
-    foreach ($subnets as $sn) {
-      for ($i=1; $i<=254; $i+=8) $candidates[] = $sn . '.' . $i;
-    }
-  }
-
-  $timeout = 0.12;
-  $limit = 256;
-  $found = array();
-
-  for ($i=0; $i<count($candidates) && $i<$limit; $i++) {
-    $ip = $candidates[$i];
-    if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) continue;
-    if (http_ping_showmaster($ip, $timeout)) $found[] = array('host' => $ip, 'id' => '', 'fw' => '');
-  }
-
-  $found = uniq_hosts($found);
-  if (count($found) > 0) json_out(array('ok' => true, 'host' => $found[0]['host'], 'hosts' => $found));
-
-  json_out(array('ok' => false, 'error' => 'Not found', 'hosts' => array()));
-}
-
-// ---- main ----
-$subnet = isset($_GET['subnet']) ? trim($_GET['subnet']) : '';
-if ($subnet !== '') {
-  if (!preg_match('/^\d{1,3}\.\d{1,3}\.\d{1,3}$/', $subnet)) {
-    json_out(array('ok' => false, 'error' => 'Invalid subnet', 'hosts' => array()));
-  }
+// If a subnet is requested, scan ONLY that subnet.
+if (valid_subnet_192_168($subnet)) {
   dbg_add('mode=subnet');
   dbg_add('subnet=' . $subnet);
-
-  $alive = alive_hosts_in_subnet($subnet);
-  dbg_add('alive=' . count($alive));
-
-  $found = array();
-  foreach ($alive as $ip) {
-    if (http_ping_showmaster($ip, 0.20)) $found[] = array('host' => $ip, 'id' => '', 'fw' => '');
-  }
-  $found = uniq_hosts($found);
-
-  json_out(array(
-    'ok' => (count($found) > 0),
-    'hosts' => $found
-  ));
+  $found = uniq_hosts(scan_subnet($subnet));
+  json_out(array('ok' => (count($found) > 0), 'hosts' => $found));
 }
 
-fast_scan();
+// Build candidate IP list.
+$candidates = read_arp_candidates();
+dbg_add('arp_candidates=' . count($candidates));
+
+// If ARP table is empty, try a small quick sweep in likely subnets.
+$subnets = array();
+add_subnet($subnets, isset($_SERVER['SERVER_ADDR']) ? $_SERVER['SERVER_ADDR'] : '');
+add_subnet($subnets, isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '');
+$subnets[] = '192.168.2';
+$subnets[] = '192.168.8';
+$subnets = array_values(array_unique($subnets));
+
+if (count($candidates) == 0) {
+  // Quick probe a limited range to avoid long waits.
+  foreach ($subnets as $sn) {
+    for ($i=1; $i<=254; $i+=8) {
+      $candidates[] = $sn . '.' . $i;
+    }
+  }
+}
+
+dbg_add('subnets=' . implode(',', $subnets));
+dbg_add('candidates_total=' . count($candidates));
+
+$found = array();
+$timeout = 0.12; // seconds
+$limit = 256;
+for ($i=0; $i<count($candidates) && $i<$limit; $i++) {
+  $ip = $candidates[$i];
+  if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) continue;
+  if (http_ping_showmaster($ip, $timeout)) {
+    $found[] = array('host' => $ip, 'id' => '', 'fw' => '');
+  }
+}
+
+$found = uniq_hosts($found);
+if (count($found) > 0) {
+  json_out(array('ok' => true, 'host' => $found[0]['host'], 'hosts' => $found));
+}
+
+json_out(array('ok' => false, 'error' => 'Not found', 'hosts' => array()));

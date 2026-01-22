@@ -3,7 +3,8 @@
 ?>
 <link rel="stylesheet" href="plugin.php?plugin=showmaster&file=css/style.css&nopage=1" />
 
-<link rel="stylesheet" href="/css/fontawesome/css/all.min.css" />
+<!-- FontAwesome (CDN). FPP paths differ between versions; using CDN avoids MIME/404 issues. -->
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.4/css/all.css" />
 <div class="sm-wrap">
   <div class="sm-topbar">
     <div class="sm-brand">
@@ -25,13 +26,15 @@
         <div class="sm-uploadRow">
           <input class="sm-ip" id="smDeviceIp" placeholder="Showmaster IP (e.g. 192.168.1.50)" list="smScannedIps" />
           <datalist id="smScannedIps"></datalist>
-          <button class="buttons btn-outline-light" id="smScan" type="button" title="Scan network for Showmaster">Scan</button>
+          <button class="buttons btn-outline-light" id="smScan" type="button" title="Scan 192.168.0.0 - 192.168.255.255">Scan</button>
           <button class="buttons btn-primary" id="smUpload" type="button">Push to Showmaster</button>
         </div>
-          <div class="sm-scanStatusRow" id="smScanStatusRow" style="display:none;">
-            <div class="sm-scanStatusText" id="smScanStatusText">Scanning...</div>
-            <div class="sm-scanBar"><div class="sm-scanBarFill" id="smScanBarFill" style="width:0%;"></div></div>
-          </div>
+
+        <!-- Scan progress (shown while scanning) -->
+        <div id="smScanStatusRow" class="sm-scanStatus" style="display:none;">
+          <div id="smScanStatusText" class="sm-scanText">Scanning...</div>
+          <div class="sm-scanBar"><div id="smScanBarFill" class="sm-scanFill" style="width:0%"></div></div>
+        </div>
       </div>
 
       <!-- hidden file input used by the Load button -->

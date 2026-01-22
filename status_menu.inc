@@ -5,6 +5,6 @@
 printf("<li><a href='plugin.php?plugin=%s&page=%s'><i class='fas fa-gamepad fa-fw'></i> %s</a></li>\n",
     $plugin,
     'pages/remote.php',
-    'Showmaster Remote'
+    'Showmaster'
 );
 ?>
