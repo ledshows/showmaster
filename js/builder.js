@@ -704,6 +704,36 @@ function makeInteractive($el, w) {
   }
 
   // -------- icon modal --------
+
+  // Limit icons to a curated set that makes sense for a remote (device firmware supports these best).
+  // Keep this list short on purpose to prevent customers from picking icons that may not exist on-device.
+  var SM_ALLOWED_ICONS = [
+    'home','info-circle','cog','wifi','power-off',
+    'play','pause','stop',
+    'backward','forward','step-backward','step-forward',
+    'fast-backward','fast-forward',
+    'volume-up','volume-down','volume-mute',
+    'lock','unlock','lock-open',
+    'lightbulb','sun','moon',
+    'list','music'
+  ];
+  function smFilterAllowedIcons(list) {
+    try {
+      if (!SM_ALLOWED_ICONS || !SM_ALLOWED_ICONS.length) return list || [];
+      var set = {};
+      for (var i=0;i<SM_ALLOWED_ICONS.length;i++) set[SM_ALLOWED_ICONS[i]] = 1;
+      var out = [];
+      list = list || [];
+      for (var j=0;j<list.length;j++) {
+        var n = list[j];
+        if (set[n]) out.push(n);
+      }
+      return out;
+    } catch(e) {
+      return list || [];
+    }
+  }
+
   // Font Awesome helper: decide whether an icon is solid/brands/regular based on fa-icons.js
   function _smFaStyleMap() {
     if (window.smFaStyleMap) return window.smFaStyleMap;
@@ -775,9 +805,9 @@ function makeInteractive($el, w) {
           else if (it.title) out.push(String(it.title).replace(/^fa[srb]?\s+fa-/, "").replace(/^fa-/, "").trim());
         }
       }
-      return out;
+      return smFilterAllowedIcons(out);
   }
-    return [];
+    return smFilterAllowedIcons([]);
   }
 
   function openIconModal() {
