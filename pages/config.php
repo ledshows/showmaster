@@ -284,7 +284,7 @@
 
 <!-- Icon Picker Modal -->
 <div class="modal fade" id="smIconModal" tabindex="-1" role="dialog" aria-hidden="true">
-  <div class="modal-dialog" role="document">
+  <div class="modal-dialog sm-modal-narrow" role="document">
     <div class="modal-content">
       <div class="modal-header">
         <h4 class="modal-title">Select an Icon</h4>
@@ -302,7 +302,7 @@
 
 <!-- Command Picker Modal -->
 <div class="modal fade" id="smCmdModal" tabindex="-1" role="dialog" aria-hidden="true">
-  <div class="modal-dialog" role="document">
+  <div class="modal-dialog sm-modal-narrow" role="document">
     <div class="modal-content">
       <div class="modal-header">
         <h4 class="modal-title">Command for Button</h4>
@@ -387,6 +387,9 @@
       </div>
       <div class="modal-body">
         <p>After changing rotation, the Showmaster will show <b>two crosses</b> on the screen.</p>
+        <div class="sm-rotNoticeImg">
+          <div class="sm-rotNoticeImgPlaceholder">[Image placeholder]</div>
+        </div>
         <p>Please tap both crosses so the touchscreen learns the new orientation.</p>
       </div>
       <div class="modal-footer">

@@ -7,6 +7,7 @@
   var GRID = 10;
 
   var state = {
+    _rotInitialized: false,
     device: { w: DEVICE_W, h: DEVICE_H, bg: "#0b0f14" },
     pages: [],            // [{id,name,h,widgets:[]}]
     activePageId: null,
@@ -90,17 +91,6 @@
       $('#smRotSeg button').removeClass('active');
       $('#smRotSeg button[data-rot="'+deg+'"]').addClass('active');
     } catch(e2) {}
-
-
-    // Show notice when rotation changes (touch calibration on device)
-    try {
-      if (state._lastRotNoticeDeg !== deg) {
-        state._lastRotNoticeDeg = deg;
-        if ($('#smRotateNoticeModal').length) {
-          $('#smRotateNoticeModal').modal ? $('#smRotateNoticeModal').modal('show') : $('#smRotateNoticeModal').addClass('show').show();
-        }
-      }
-    } catch(eNotice) {}
 
     if (!skipRender) {
       renderPageTabs();
@@ -1245,7 +1235,17 @@ function addStatus() {
     $(document).off("click.smRot").on("click.smRot", "#smRotSeg button", function(e){
       e.preventDefault();
       var deg = $(this).attr('data-rot');
+      var prev = normalizeRotation(state.rotation || 0);
       applyRotation(deg, false);
+      var now = normalizeRotation(state.rotation || 0);
+
+      // Show notice ONLY on user-initiated change (not on initial load)
+      try {
+        if (state._rotInitialized && prev !== now && $('#smRotateNoticeModal').length) {
+          $('#smRotateNoticeModal').modal ? $('#smRotateNoticeModal').modal('show') : $('#smRotateNoticeModal').addClass('show').show();
+        }
+      } catch(eNotice) {}
+      state._rotInitialized = true;
     });
 
     // Debug log toggle
@@ -1436,8 +1436,8 @@ function addStatus() {
       }
 
       function pump(){
-        if (done >= 256) return finish();
-        while (nextSubnet < 256 && concurrency > 0) {
+        if (done >= subnetList.length) return finish();
+        while (nextSubnet < subnetList.length && concurrency > 0) {
           concurrency--;
           (function(idx){
             scanOne(idx).always(function(){
