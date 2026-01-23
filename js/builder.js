@@ -6,9 +6,7 @@
   var DEVICE_H = 240;
   var GRID = 10;
 
-  var lastRotationNotice = null;
-
-var state = {
+  var state = {
     device: { w: DEVICE_W, h: DEVICE_H, bg: "#0b0f14" },
     pages: [],            // [{id,name,h,widgets:[]}]
     activePageId: null,
@@ -50,7 +48,6 @@ var state = {
 
   function applyRotation(deg, skipRender){
     deg = normalizeRotation(deg);
-    var prevRot = state.rotation;
     state.rotation = deg;
 
     // remember previous device height so we can shrink the page height when rotating back
@@ -93,19 +90,6 @@ var state = {
       $('#smRotSeg button').removeClass('active');
       $('#smRotSeg button[data-rot="'+deg+'"]').addClass('active');
     } catch(e2) {}
-
-    
-    // Show calibration notice whenever rotation changes from the builder.
-    try {
-      if (prevRot !== deg) {
-        var el = document.getElementById('smRotationNoticeModal');
-        if (el && window.bootstrap && bootstrap.Modal) {
-          new bootstrap.Modal(el).show();
-        } else {
-          alert('Touch calibration required\n\nAfter changing rotation, two crosses will appear on the Showmaster screen. Tap both crosses to calibrate the touchscreen for the new orientation.');
-        }
-      }
-    } catch(eN) {}
 
     if (!skipRender) {
       renderPageTabs();
@@ -720,36 +704,6 @@ function makeInteractive($el, w) {
   }
 
   // -------- icon modal --------
-
-  // Limit icons to a curated set that makes sense for a remote (device firmware supports these best).
-  // Keep this list short on purpose to prevent customers from picking icons that may not exist on-device.
-  var SM_ALLOWED_ICONS = [
-    'home','info-circle','cog','wifi','power-off',
-    'play','pause','stop',
-    'backward','forward','step-backward','step-forward',
-    'fast-backward','fast-forward',
-    'volume-up','volume-down','volume-mute',
-    'lock','unlock','lock-open',
-    'lightbulb','sun','moon',
-    'list','music'
-  ];
-  function smFilterAllowedIcons(list) {
-    try {
-      if (!SM_ALLOWED_ICONS || !SM_ALLOWED_ICONS.length) return list || [];
-      var set = {};
-      for (var i=0;i<SM_ALLOWED_ICONS.length;i++) set[SM_ALLOWED_ICONS[i]] = 1;
-      var out = [];
-      list = list || [];
-      for (var j=0;j<list.length;j++) {
-        var n = list[j];
-        if (set[n]) out.push(n);
-      }
-      return out;
-    } catch(e) {
-      return list || [];
-    }
-  }
-
   // Font Awesome helper: decide whether an icon is solid/brands/regular based on fa-icons.js
   function _smFaStyleMap() {
     if (window.smFaStyleMap) return window.smFaStyleMap;
@@ -821,9 +775,9 @@ function makeInteractive($el, w) {
           else if (it.title) out.push(String(it.title).replace(/^fa[srb]?\s+fa-/, "").replace(/^fa-/, "").trim());
         }
       }
-      return smFilterAllowedIcons(out);
+      return out;
   }
-    return smFilterAllowedIcons([]);
+    return [];
   }
 
   function openIconModal() {

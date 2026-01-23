@@ -372,22 +372,3 @@
     </div>
   </div>
 </div>
-  <!-- Rotation notice modal -->
-  <div class="modal fade" id="smRotationNoticeModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content smModal">
-        <div class="modal-header">
-          <h4 class="modal-title">Touch calibration required</h4>
-          <button type="button" class="smModalClose" data-bs-dismiss="modal" aria-label="Close">&times;</button>
-        </div>
-        <div class="modal-body">
-          <p style="margin:0 0 10px 0;">After changing rotation, two crosses will appear on the Showmaster screen.</p>
-          <p style="margin:0;">Tap both crosses to calibrate the touchscreen for the new orientation.</p>
-        </div>
-        <div class="modal-footer" style="justify-content:flex-end;">
-          <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
