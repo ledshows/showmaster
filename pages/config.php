@@ -9,7 +9,7 @@
   <div class="sm-topbar">
     <div class="sm-brand">
       <div class="sm-logo"><img src="plugin.php?plugin=showmaster&file=images/showmaster.png&nopage=1" alt="Showmaster" /></div>
-      <div class="sm-subtitle"></div>
+      <div class="sm-subtitle">Showmaster</div>
     </div>
 
     <!-- Notice sits between logo and Save -->
@@ -97,6 +97,10 @@
         <button class="buttons btn-outline-light sm-wideBtn" id="smAddLock" type="button" title="Add lock button to canvas">
           <span class="smPlus">+</span>
           <span class="smBtnText">lock screen button</span>
+        </button>
+        <button class="buttons btn-outline-light sm-wideBtn" id="smAddBrightness" type="button" title="Add screen brightness slider to canvas">
+          <span class="smPlus">+</span>
+          <span class="smBtnText">screen brightness button</span>
         </button>
       </div>
     </div>
@@ -368,6 +372,42 @@
           <button class="buttons btn-outline-light" type="button" data-dismiss="modal" data-bs-dismiss="modal">Cancel</button>
           <button class="buttons btn-primary" id="smCopyPageDo" type="button">Copy</button>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal fade" id="smRotateNoticeModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title">Touch calibration required</h4>
+        <button type="button" class="smModalClose" data-dismiss="modal" data-bs-dismiss="modal" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>After changing rotation, the Showmaster will show <b>two crosses</b> on the screen.</p>
+        <p>Please tap both crosses so the touchscreen learns the new orientation.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-dismiss="modal" data-bs-dismiss="modal">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal fade" id="smConfirmModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title" id="smConfirmTitle">Are you sure?</h4>
+        <button type="button" class="smModalClose" data-dismiss="modal" data-bs-dismiss="modal" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body" id="smConfirmBody">Are you sure?</div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" id="smConfirmCancel" data-dismiss="modal" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="smConfirmOk">Delete</button>
       </div>
     </div>
   </div>

@@ -91,6 +91,17 @@
       $('#smRotSeg button[data-rot="'+deg+'"]').addClass('active');
     } catch(e2) {}
 
+
+    // Show notice when rotation changes (touch calibration on device)
+    try {
+      if (state._lastRotNoticeDeg !== deg) {
+        state._lastRotNoticeDeg = deg;
+        if ($('#smRotateNoticeModal').length) {
+          $('#smRotateNoticeModal').modal ? $('#smRotateNoticeModal').modal('show') : $('#smRotateNoticeModal').addClass('show').show();
+        }
+      }
+    } catch(eNotice) {}
+
     if (!skipRender) {
       renderPageTabs();
       renderCanvas();
@@ -353,7 +364,7 @@ function widgetById(id) {
         $b.append("<span class='sm-pageName'>" + esc(name) + "</span>");
         if (state.pages.length > 1) {
           var $x = $("<button class='sm-delPage' type='button' title='Delete page'>&times;</button>");
-          $x.on("click", function(e){ e.stopPropagation(); deletePage(pg.id); });
+          $x.on("click", function(e){ e.stopPropagation(); confirmDeletePage(pg.id); });
           $b.append($x);
         }
         if (pg.id === state.activePageId) $b.addClass("active");
@@ -365,7 +376,25 @@ function widgetById(id) {
     fillCopyPageSelect();
   }
 
-  function deletePage(pageId) {
+  
+  function confirmDeletePage(pageId){
+    // Use modal confirm if available, else native confirm
+    try {
+      if ($('#smConfirmModal').length) {
+        $('#smConfirmTitle').text('Delete page?');
+        $('#smConfirmBody').text('Delete this page? This cannot be undone.');
+        $('#smConfirmOk').off('click').on('click', function(){
+          try { $('#smConfirmModal').modal ? $('#smConfirmModal').modal('hide') : $('#smConfirmModal').hide(); } catch(eh){}
+          deletePage(pageId);
+        });
+        $('#smConfirmModal').modal ? $('#smConfirmModal').modal('show') : $('#smConfirmModal').addClass('show').show();
+        return;
+      }
+    } catch(e){}
+    if (confirm('Delete this page? This cannot be undone.')) deletePage(pageId);
+  }
+
+function deletePage(pageId) {
     ensurePages();
     if (state.pages.length <= 1) return;
     var idx = -1;
@@ -986,7 +1015,31 @@ function makeInteractive($el, w) {
     setSelection(w.id, true);
   }
 
-  function addStatus() {
+  
+  function addBrightness() {
+    ensurePages();
+    var pg = currentPage();
+    // A local slider widget the firmware interprets to set screen brightness (0-100)
+    var w = normalizeWidget({
+      id: uid("brightness"),
+      type: "brightness",
+      x: Math.round((DEVICE_W - 180) / 2), y: Math.round((DEVICE_H - 44) / 2),
+      w: 180, h: 44,
+      label: "Brightness",
+      icon: "bulb",
+      iconSize: 22,
+      textSize: 14,
+      min: 0,
+      max: 100,
+      value: 100,
+      command: "screen.brightness",
+      args: {}
+    });
+    (pg.widgets || (pg.widgets=[])).push(w);
+    setSelection(w.id, true);
+  }
+
+function addStatus() {
     ensurePages();
     var pg = currentPage();
     var w = normalizeWidget({
@@ -1233,6 +1286,7 @@ function makeInteractive($el, w) {
 
     $("#smAddAction").off("click").on("click", function(e){ e.preventDefault(); addAction(); });
     $("#smAddLock").off("click").on("click", function(e){ e.preventDefault(); addLock(); });
+    $("#smAddBrightness").off("click").on("click", function(e){ e.preventDefault(); addBrightness(); });
     $("#smAddStatus").off("click").on("click", function(e){ e.preventDefault(); addStatus(); });
     $("#smAddTab").off("click").on("click", function(e){ e.preventDefault(); addTab(); });
     $("#smAddPage").off("click").on("click", function(e){ e.preventDefault(); addPage(); });
@@ -1318,19 +1372,20 @@ function makeInteractive($el, w) {
       $btn.prop('disabled', true).text('Scanning...');
       showStatus(true);
       setProgress(0);
-      setStatus('Scanning 192.168.*.* (0%) — found 0');
+      setStatus('Scanning common subnets (0%) — found 0');
 
       var allHosts = {};
       var foundList = [];
 
+      var subnetList = [0,1,2,8,10,20,50,100,200];
       var nextSubnet = 0;
       var done = 0;
       var concurrency = 4; // gentle
 
       function updateUi(){
-        var pct = Math.round((done / 256) * 100);
+        var pct = Math.round((done / subnetList.length) * 100);
         setProgress(pct);
-        setStatus('Scanning 192.168.*.* (' + pct + '%) — found ' + foundList.length);
+        setStatus('Scanning common subnets (' + pct + '%) — found ' + foundList.length);
       }
 
       function addHosts(hosts){
@@ -1358,7 +1413,7 @@ function makeInteractive($el, w) {
           $('#smDeviceIp').val(foundList[0].host);
           toast(foundList.length === 1 ? ('Found: ' + foundList[0].host) : ('Found ' + foundList.length + ' Showmasters. Click the IP field to choose.'));
         } else {
-          toast('Not found on 192.168.*.* (did you power on Showmaster?)', true);
+          toast('Not found (did you power on Showmaster?)', true);
         }
 
         setProgress(100);
@@ -1367,7 +1422,8 @@ function makeInteractive($el, w) {
         setTimeout(function(){ showStatus(false); }, 2500);
       }
 
-      function scanOne(subnetIdx){
+      function scanOne(idx){
+        var subnetIdx = subnetList[idx];
         var sn = '192.168.' + subnetIdx;
         return $.getJSON('plugin.php?plugin=showmaster&page=pages/api.php&cmd=scan&nopage=1&subnet=' + encodeURIComponent(sn))
           .done(function(res){

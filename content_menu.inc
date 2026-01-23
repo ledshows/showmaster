@@ -7,6 +7,6 @@ $GLOBALS['__showmaster_menu_added'] = true;
 printf("<li><a href='plugin.php?plugin=%s&page=%s'><i class='fas fa-edit fa-fw'></i> %s</a></li>\n",
     $plugin,
     'plugin.php',
-    'Showmaster Builder'
+    'Showmaster'
 );
 ?>

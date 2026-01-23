@@ -1,6 +1,6 @@
 {
   "repoName": "showmaster",
-  "name": "Showmaster Builder",
+  "name": "Showmaster",
   "author": "Ledshows",
   "description": "Drag & drop UI builder (320x240) for the Showmaster touchscreen. Build action/status widgets and push the config to the Showmaster.",
   "homeURL": "https://github.com/ledshows/showmaster",
