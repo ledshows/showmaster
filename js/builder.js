@@ -290,13 +290,13 @@ function widgetById(id) {
     if (w.type === "status") return prettySource(w.source);
     if (w.type === "tab") {
       var label = (w.label == null) ? "" : String(w.label);
-      var iconT = w.icon ? smIconHtml(w.icon, (w.iconSize||14)) : "";
+      var iconT = w.icon ? smIconHtml(w.icon, (w.iconSize||14), w.text) : "";
       if (!label.trim()) return iconT;
       return iconT + "<span>" + esc(label) + "</span>";
     }
     // action: icon + label (spacing handled by CSS, not by trailing spaces)
     var label2 = (w.label == null) ? "" : String(w.label);
-    var icon = w.icon ? smIconHtml(w.icon, (w.iconSize||14)) : "";
+    var icon = w.icon ? smIconHtml(w.icon, (w.iconSize||14), w.text) : "";
     if (!label2.trim()) return icon;
     return icon + "<span>" + esc(label2) + "</span>";
   }
@@ -705,10 +705,19 @@ function makeInteractive($el, w) {
 
   // -------- icon modal --------
   // Showmaster SVG icon pack (Icons.zip). Icons render as SVG in the builder and export by name.
-  function smIconHtml(name, px) {
+  function smIconHtml(name, px, color) {
     if (!name) return '';
     var sz = px || 18;
-    return "<img class=\"smSvgIcon\" src=\"images/sm-icons/" + esc(name) + ".png\" style=\"width:" + sz + "px;height:" + sz + "px;\" alt=\"\">";
+    // Resolve icon path relative to this page (works inside FPP plugin paths)
+    var base = (window.SM_ICON_BASE || (window.SM_ICON_BASE = (new URL('.', window.location.href)).pathname));
+    var url = base + "images/sm-icons/" + esc(name) + ".png";
+    var col = color || '#ffffff';
+    // Use mask technique so icons can be recolored (png should be monochrome with alpha)
+    var style = "width:" + sz + "px;height:" + sz + "px;background-color:" + esc(col) + ";" +
+                "-webkit-mask:url('" + url + "') no-repeat center/contain;" +
+                "mask:url('" + url + "') no-repeat center/contain;" +
+                "display:inline-block;";
+    return "<span class=\"smSvgIconMask\" style=\"" + style + "\"></span>";
   }
 
   function allIcons() {
