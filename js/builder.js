@@ -290,13 +290,13 @@ function widgetById(id) {
     if (w.type === "status") return prettySource(w.source);
     if (w.type === "tab") {
       var label = (w.label == null) ? "" : String(w.label);
-      var iconT = w.icon ? smFaHtml(w.icon, (w.iconSize||14)) : "";
+      var iconT = w.icon ? smIconHtml(w.icon, (w.iconSize||14)) : "";
       if (!label.trim()) return iconT;
       return iconT + "<span>" + esc(label) + "</span>";
     }
     // action: icon + label (spacing handled by CSS, not by trailing spaces)
     var label2 = (w.label == null) ? "" : String(w.label);
-    var icon = w.icon ? smFaHtml(w.icon, (w.iconSize||14)) : "";
+    var icon = w.icon ? smIconHtml(w.icon, (w.iconSize||14)) : "";
     if (!label2.trim()) return icon;
     return icon + "<span>" + esc(label2) + "</span>";
   }
@@ -704,62 +704,11 @@ function makeInteractive($el, w) {
   }
 
   // -------- icon modal --------
-  // Font Awesome helper: decide whether an icon is solid/brands/regular based on fa-icons.js
-  function _smFaStyleMap() {
-    if (window.smFaStyleMap) return window.smFaStyleMap;
-    var m = {};
-    if (window.faIcons && window.faIcons.length) {
-      for (var i=0;i<window.faIcons.length;i++) {
-        var it = window.faIcons[i];
-        if (!it || typeof it !== 'object') continue;
-        var t = String(it.title || '').trim();
-        if (!t) continue;
-        // expected: "fas fa-home" or "fab fa-github"
-        var parts = t.split(/\s+/);
-        var style = parts[0] || 'fas';
-        var nm = (parts[1] || '').replace(/^fa-/, '').trim();
-        if (nm) m[nm] = style;
-      }
-    }
-    window.smFaStyleMap = m;
-    return m;
-  }
-
-  // Return classes that work with BOTH Font Awesome 5 (fas/far/fab)
-  // and Font Awesome 6 (fa-solid/fa-regular/fa-brands).
-  // Also include the classic "fa" base class so this works on older FPP builds
-  // that still ship Font Awesome 4 (fa fa-<name>).
-  function smFaClassFor(name) {
-    var m = _smFaStyleMap();
-    var style = (m && m[name]) ? m[name] : 'fas';
-
-    // If already a FA6 prefix, add the FA5-equivalent too.
-    if (style.indexOf('fa-') === 0) {
-      if (style === 'fa-brands') return 'fa fa-brands fab';
-      if (style === 'fa-regular') return 'fa fa-regular far';
-      // default: solid
-      return 'fa fa-solid fas';
-    }
-
-    // Map FA5 prefixes to a dual-class set.
-    if (style === 'fab') return 'fa fa-brands fab';
-    if (style === 'far') return 'fa fa-regular far';
-    // default: solid (fas)
-    return 'fa fa-solid ' + style;
-  }
-
-  // Return the FA style token for an icon name (e.g. "fas" or "fab").
-  // This is used to persist style in JSON so the firmware can pick the correct font.
-  function smFaStyleFor(name) {
-    var m = _smFaStyleMap();
-    return (m && m[name]) ? m[name] : 'fas';
-  }
-
-  function smFaHtml(name, px) {
+  // Showmaster SVG icon pack (Icons.zip). Icons render as SVG in the builder and export by name.
+  function smIconHtml(name, px) {
     if (!name) return '';
-    var cls = smFaClassFor(name);
-    var sz = px ? (" style='font-size:" + px + "px'") : '';
-    return "<i class='" + cls + " fa-" + esc(name) + "'" + sz + "></i>";
+    var sz = px || 18;
+    return "<img class='smSvgIcon' src='images/sm-icons/" + esc(name) + ".svg' style='width:" + sz + "px;height:" + sz + "px;' alt=''>";
   }
 
   function allIcons() {
@@ -795,7 +744,7 @@ function makeInteractive($el, w) {
       if (!name) continue;
       var $b = $("<button type='button' class='smIconTile'></button>");
       $b.attr("data-icon", name);
-      $b.html("<i class='" + smFaClassFor(name) + " fa-" + esc(name) + "'></i>");
+      $b.html(smIconHtml(name, 28));
       if (name === cur) $b.addClass("active");
       $g.append($b);
     }
@@ -804,8 +753,8 @@ function makeInteractive($el, w) {
       var w2 = widgetById(state.selectedId);
       if (!w2 || (w2.type!=="action" && w2.type!=="tab")) return;
       w2.icon = icon;
-      // Persist icon style so the firmware can pick the correct FA font (solid vs brands).
-      w2.iconStyle = smFaStyleFor(icon);
+      // SVG pack only: no FontAwesome style fields
+      delete w2.iconStyle;
       $("#smIconValue").val(icon);
       try { if ($("#smIconModal").modal) { $("#smIconModal").modal("hide"); } else if (window.bootstrap && window.bootstrap.Modal) { (window.bootstrap.Modal.getInstance(document.getElementById("smIconModal")) || new window.bootstrap.Modal(document.getElementById("smIconModal"))).hide(); } } catch(e) {}
       renderCanvas(); renderProps();
@@ -999,8 +948,7 @@ function makeInteractive($el, w) {
       x: Math.round((DEVICE_W - 120) / 2), y: Math.round((DEVICE_H - 44) / 2),
       w: 120, h: 44,
       label: "Start Show",
-      icon: "play",
-      iconStyle: smFaStyleFor("play"),
+      icon: "player-play",
       iconSize: 24,
       textSize: 14,
       command: "",
@@ -1020,7 +968,6 @@ function makeInteractive($el, w) {
       w: 120, h: 44,
       label: "Lock",
       icon: "lock",
-      iconStyle: smFaStyleFor("lock"),
       iconSize: 24,
       textSize: 14,
       // Local lock commands (handled locally on the Showmaster / Remote page)
@@ -1055,8 +1002,7 @@ function makeInteractive($el, w) {
       x: Math.round((DEVICE_W - 120) / 2), y: Math.round((DEVICE_H - 44) / 2),
       w: 120, h: 44,
       label: "",
-      icon: "columns",
-      iconStyle: smFaStyleFor("columns"),
+      icon: "home",
       iconSize: 22,
       textSize: 14,
       targetPageId: tgt
@@ -1126,14 +1072,7 @@ function makeInteractive($el, w) {
     // Ensure each page has its own background
     for (var i=0;i<(state.pages||[]).length;i++) {
       if (!state.pages[i].bg) state.pages[i].bg = (state.device.bg || '#070a12');
-      // Backfill iconStyle for existing configs (so brands icons work on device).
-      var ws = state.pages[i].widgets || [];
-      for (var j=0;j<ws.length;j++) {
-        var w = ws[j];
-        if (w && w.icon && typeof w.iconStyle === 'undefined') {
-          try { w.iconStyle = smFaStyleFor(String(w.icon)); } catch(eIS) {}
-        }
-      }
+      // SVG pack only: no iconStyle fields.
     }
     state.selectedId = null;
     // Set page background
