@@ -709,8 +709,7 @@ function makeInteractive($el, w) {
     if (!name) return '';
     var sz = px || 18;
     // Resolve icon path relative to this page (works inside FPP plugin paths)
-    var base = (window.SM_ICON_BASE || (window.SM_ICON_BASE = (new URL('.', window.location.href)).pathname));
-    var url = base + "images/sm-icons/" + esc(name) + ".png";
+    var url = "plugin.php?plugin=showmaster&file=images/sm-icons/" + esc(name) + ".png&nopage=1";
     var col = color || '#ffffff';
     // Use mask technique so icons can be recolored (png should be monochrome with alpha)
     var style = "width:" + sz + "px;height:" + sz + "px;background-color:" + esc(col) + ";" +
