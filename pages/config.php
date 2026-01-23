@@ -379,7 +379,7 @@
 
 
 <div class="modal fade" id="smRotateNoticeModal" tabindex="-1" role="dialog" aria-hidden="true">
-  <div class="modal-dialog" role="document">
+  <div class="modal-dialog sm-modal-narrow" role="document">
     <div class="modal-content">
       <div class="modal-header">
         <h4 class="modal-title">Touch calibration required</h4>
@@ -401,7 +401,7 @@
 
 
 <div class="modal fade" id="smConfirmModal" tabindex="-1" role="dialog" aria-hidden="true">
-  <div class="modal-dialog" role="document">
+  <div class="modal-dialog sm-modal-narrow" role="document">
     <div class="modal-content">
       <div class="modal-header">
         <h4 class="modal-title" id="smConfirmTitle">Are you sure?</h4>

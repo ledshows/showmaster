@@ -51,6 +51,8 @@
     deg = normalizeRotation(deg);
     state.rotation = deg;
 
+    state._rotating = true;
+
     // remember previous device height so we can shrink the page height when rotating back
     var prevH = (state.device && state.device.h) ? parseInt(state.device.h, 10) : DEVICE_H;
 
@@ -220,8 +222,10 @@ function widgetById(id) {
     var pg = currentPage();
     var ph = toInt(pg && pg.h ? pg.h : DEVICE_H, DEVICE_H);
     if (ph < DEVICE_H) ph = DEVICE_H;
-    w.x = clamp(w.x, 0, DEVICE_W - 1);
-    w.y = clamp(w.y, 0, ph - 1);
+    if (!state._rotating) {
+      w.x = clamp(w.x, 0, DEVICE_W - 1);
+      w.y = clamp(w.y, 0, ph - 1);
+    }
     w.w = clamp(w.w, 10, DEVICE_W);
     w.h = clamp(w.h, 10, ph);
     if (!w.bg) w.bg = (w.type === "action") ? "#0ea5e9" : "rgba(255,255,255,0.06)";
@@ -771,7 +775,7 @@ function makeInteractive($el, w) {
       if (!name) continue;
       var $b = $("<button type='button' class='smIconTile'></button>");
       $b.attr("data-icon", name);
-      $b.html(smIconHtml(name, 28));
+      $b.html(smIconHtml(name, 28, '#000000'));
       if (name === cur) $b.addClass("active");
       $g.append($b);
     }

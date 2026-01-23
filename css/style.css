@@ -1069,3 +1069,7 @@ body.sm-remoteCanvasOnly .sm-canvasOnlyExit:hover{background:rgba(255,255,255,0.
   color: rgba(255,255,255,0.65);
   font-size: 14px;
 }
+
+
+/* Icon picker: make icons black for visibility */
+.smIconTile .smSvgIconMask{background-color:#000 !important;}
