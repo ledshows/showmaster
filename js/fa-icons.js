@@ -1,5 +1,5 @@
 // Showmaster SVG icon pack (device-safe)
-// These map to: images/sm-icons/<name>.svg
+// These map to: images/sm-icons/<name>.png
 window.faIcons = [
   "player-track-prev",
   "player-track-next",

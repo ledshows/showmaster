@@ -708,7 +708,7 @@ function makeInteractive($el, w) {
   function smIconHtml(name, px) {
     if (!name) return '';
     var sz = px || 18;
-    return "<img class='smSvgIcon' src='images/sm-icons/" + esc(name) + ".svg' style='width:" + sz + "px;height:" + sz + "px;' alt=''>";
+    return "<img class=\"smSvgIcon\" src=\"images/sm-icons/" + esc(name) + ".png\" style=\"width:" + sz + "px;height:" + sz + "px;\" alt=\"\">";
   }
 
   function allIcons() {
