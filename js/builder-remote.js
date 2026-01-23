@@ -57,35 +57,38 @@
   function prettySource(id){
     // same labels as builder (kept short)
     var map = {
-      'player.statusText':'Player: Status text',
-      'player.playlist':'Player: Playlist',
-      'player.sequence':'Player: Sequence',
       'player.volume':'Player: Volume',
-      'system.time':'System: Time',
-      'system.ip':'System: IP address'
-      ,
-      // FPP status JSON extras
-      'fpp.host_name':'FPP: Host name',
-      'fpp.host_description':'FPP: Host description',
-      'fpp.platform':'FPP: Platform',
-      'fpp.version':'FPP: Version',
-      'fpp.branch':'FPP: Branch',
-      'fpp.uuid':'FPP: UUID',
-      'fpp.mode_name':'FPP: Mode name',
-      'fpp.status_name':'FPP: Status name',
-      'fpp.fppd':'FPPD: State',
-      'fpp.current_playlist.playlist':'Playlist: Current playlist',
-      'fpp.current_sequence':'Playlist: Current sequence',
-      'fpp.volume':'Audio: Volume',
-      'fpp.uptimeStr':'System: Uptime',
-      'fpp.dateStr':'System: Date',
-      'fpp.timeStrFull':'System: Time (full)',
-      'fpp.scheduler.status':'Scheduler: Status',
-      'fpp.MQTT.configured':'MQTT: Configured',
-      'fpp.MQTT.connected':'MQTT: Connected',
-      'fpp.sensors[0].formatted':'Sensor: CPU temp',
-      'fpp.powerBad':'System: Power bad'
+      'player.mode':'Player: Mode',
+      'player.repeat':'Player: Repeat',
+      'player.currentSequence':'Player: Current sequence',
+      'player.sequencePosition':'Player: Position',
+      'system.hostname':'System: Hostname',
+      'system.ip':'System: IP',
+      'fpp.version':'FPP: Version'
     };
+
+    function sourceValue(src, st){
+      if(!st) return '';
+      switch(src){
+        case 'player.volume': return st.volume != null ? String(st.volume) : '';
+        case 'player.mode': return st.mode || st.playerMode || '';
+        case 'player.repeat': return (st.repeat != null) ? (st.repeat ? 'On':'Off') : (st.repeatStatus||'');
+        case 'player.currentSequence': return st.currentSequence || st.sequence || '';
+        case 'player.sequencePosition': {
+          var p = (st.sequencePosition!=null)?st.sequencePosition:st.position;
+          if(p==null) return '';
+          return String(p);
+        }
+        case 'system.hostname': return st.hostname || '';
+        case 'system.ip': return st.ip || st.address || '';
+        case 'fpp.version': return st.version || st.fppVersion || '';
+        default:
+          // legacy fallbacks
+          return st[src] || '';
+      }
+    }
+
+
     return map[id] || (id || '');
   }
 
@@ -363,15 +366,14 @@
 
     // Backward-compatible mapping for older sources
     var map = {
-      'player.statusText': 'status_name',
-      'player.uptime': 'uptimeStr',
-      'player.currentPlaylist': 'current_playlist.playlist',
-      'player.currentSequence': 'current_sequence',
-      'player.volume': 'volume',
-      'player.mode': 'mode_name',
-      'system.hostname': 'host_name',
-      'system.cpuTemp': 'sensors[0].formatted',
-      'system.time': 'timeStrFull'
+      'player.volume':'Player: Volume',
+      'player.mode':'Player: Mode',
+      'player.repeat':'Player: Repeat',
+      'player.currentSequence':'Player: Current sequence',
+      'player.sequencePosition':'Player: Position',
+      'system.hostname':'System: Hostname',
+      'system.ip':'System: IP',
+      'fpp.version':'FPP: Version'
     };
     if (map[sourceId]) return getPath(lastStatus, map[sourceId]);
 
