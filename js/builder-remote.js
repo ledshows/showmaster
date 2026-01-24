@@ -7,44 +7,19 @@
     return s.replace(/[&<>\"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);});
   }
 
-  // Font Awesome class helper (FA5 + FA6 compatible)
-  // - FA5 expects:  fas / far / fab
-  // - FA6 expects:  fa-solid / fa-regular / fa-brands
-  // We output BOTH so whichever version is available will render icons.
-  function _smFaStyleMap(){
-    if (window.smFaStyleMap) return window.smFaStyleMap;
-    var m = {};
-    if (window.faIcons && window.faIcons.length) {
-      for (var i=0;i<window.faIcons.length;i++) {
-        var it = window.faIcons[i];
-        if (!it || typeof it !== 'object') continue;
-        var t = String(it.title || '').trim();
-        if (!t) continue;
-        var parts = t.split(/\s+/);
-        var style = parts[0] || 'fas';
-        var nm = (parts[1] || '').replace(/^fa-/, '').trim();
-        if (nm) m[nm] = style;
-      }
-    }
-    window.smFaStyleMap = m;
-    return m;
+  // Showmaster icon pack (PNG alpha masks).
+  function smIconHtml(name, px, color){
+    if (!name) return '';
+    var sz = px || 18;
+    var col = color || '#ffffff';
+    var url = 'plugin.php?plugin=showmaster&file=images/sm-icons/' + esc(name) + '.png&nopage=1';
+    var style = 'width:' + sz + 'px;height:' + sz + 'px;background-color:' + col + ';' +
+                '-webkit-mask:url(\'' + url + '\') no-repeat center/contain;' +
+                'mask:url(\'' + url + '\') no-repeat center/contain;' +
+                'display:inline-block;vertical-align:middle;';
+    return '<span class="smSvgIconMask" style="' + style + '"></span>';
   }
 
-  function smFaClassFor(name){
-    var m = _smFaStyleMap();
-    var style = (m && m[name]) ? m[name] : 'fas';
-
-    if (style.indexOf('fa-') === 0) {
-      if (style === 'fa-brands') return 'fa-brands fab';
-      if (style === 'fa-regular') return 'fa-regular far';
-      return 'fa-solid fas';
-    }
-
-    if (style === 'fab') return 'fa-brands fab';
-    if (style === 'far') return 'fa-regular far';
-    return 'fa-solid ' + style;
-  }
-  try { window.smFaClassFor = window.smFaClassFor || smFaClassFor; } catch(e) {}
 
   function toast(msg, isErr){
     // Remote page: no notices/toasts (user asked).
@@ -99,13 +74,13 @@
     }
     if (w.type === 'tab') {
       var label = (w.label == null) ? '' : String(w.label);
-      var iconT = w.icon ? ("<i class='" + (window.smFaClassFor ? window.smFaClassFor(w.icon) : 'fa fa-solid fas') + " fa-" + esc(w.icon) + "' style='font-size:" + (w.iconSize||14) + "px'></i>") : '';
+      var iconT = w.icon ? smIconHtml(w.icon, (w.iconSize||14), (w.text||'#ffffff')) : '';
       if (!label.trim()) return iconT;
       return iconT + '<span>' + esc(label) + '</span>';
     }
     // action
     var label2 = (w.label == null) ? '' : String(w.label);
-    var icon = w.icon ? ("<i class='" + (window.smFaClassFor ? window.smFaClassFor(w.icon) : 'fa fa-solid fas') + " fa-" + esc(w.icon) + "' style='font-size:" + (w.iconSize||14) + "px'></i>") : '';
+    var icon = w.icon ? smIconHtml(w.icon, (w.iconSize||14), (w.text||'#ffffff')) : '';
     if (!label2.trim()) return icon;
     return icon + '<span>' + esc(label2) + '</span>';
   }
@@ -359,30 +334,42 @@
 
   function valueForSource(sourceId){
     if (!sourceId) return '';
-    // New sources: fpp.* are read from /api/fppd/status
-    if (sourceId.indexOf('fpp.') === 0) {
-      return getPath(lastStatus, sourceId.substring(4));
+    var st = lastStatus || {};
+
+    function firstVal(paths){
+      for (var i=0;i<paths.length;i++) {
+        var v = getPath(st, paths[i]);
+        if (v != null && String(v).length) return v;
+      }
+      return '';
     }
 
-    // Backward-compatible mapping for older sources
-    var map = {
-      'player.volume':'Player: Volume',
-      'player.mode':'Player: Mode',
-      'player.repeat':'Player: Repeat',
-      'player.currentSequence':'Player: Current sequence',
-      'player.sequencePosition':'Player: Position',
-      'system.hostname':'System: Hostname',
-      'system.ip':'System: IP',
-      'fpp.version':'FPP: Version'
-    };
-    if (map[sourceId]) return getPath(lastStatus, map[sourceId]);
-
-    if (sourceId === 'system.ip') {
-      // Best-effort: if you opened FPP by IP, use it.
-      return (window.location && window.location.hostname) ? String(window.location.hostname) : '';
+    // Main sources used by the builder
+    switch(String(sourceId)){
+      case 'player.volume':
+        return firstVal(['volume','status.volume','player.volume']);
+      case 'player.mode':
+        return firstVal(['mode','status.mode','player.mode','playerMode']);
+      case 'player.repeat':
+        return firstVal(['repeat','status.repeat','player.repeat']);
+      case 'player.currentSequence':
+        return firstVal(['currentSequence','current_sequence','status.currentSequence','status.current_sequence','sequence','currentMedia']);
+      case 'player.sequencePosition':
+        return firstVal(['sequencePosition','sequence_position','status.sequencePosition','status.sequence_position','position','seconds_elapsed']);
+      case 'fpp.version':
+        return firstVal(['version','fppVersion','status.version']);
+      case 'system.hostname':
+        return (window.location && window.location.hostname) ? String(window.location.hostname) : '';
+      case 'system.ip':
+        return (window.location && window.location.hostname) ? String(window.location.hostname) : '';
+      default:
+        // Support direct fpp.* passthrough
+        if (String(sourceId).indexOf('fpp.') === 0) {
+          return getPath(st, String(sourceId).substring(4)) || '';
+        }
+        // Try direct path
+        return getPath(st, sourceId) || '';
     }
-
-    return '';
   }
 
   function updateStatusWidgets(){
@@ -405,7 +392,7 @@
     // Poll FPP status. This endpoint matches the JSON structure you shared.
     function poll(){
       // Prefer relative URL (works if FPP runs under a sub-path), fallback to absolute.
-      jQuery.getJSON('api/fppd/status').done(function(js){
+      jQuery.getJSON('/api/fppd/status').done(function(js){
         lastStatus = js;
         updateStatusWidgets();
       }).fail(function(){
@@ -430,12 +417,7 @@
 
   function ensureLockOverlay(){
     if (jQuery('#smRLockOverlay').length) return;
-    var $ov = jQuery("<div id=\'smRLockOverlay\' class=\'sm-lockOverlay\' style=\'display:none;\'>" +
-      "<div class='sm-lockCard'>" +
-        "<div class='sm-lockTitle'><i class='fa fa-solid fas fa-lock'></i> Screen locked</div>" +
-        "<button type='button' id='smRUnlockBtn' class='sm-unlockBtn'>Unlock</button>" +
-      "</div>" +
-    "</div>");
+    var $ov = jQuery("<div id=\'smRLockOverlay\' class=\'sm-lockOverlay\' style=\'display:none;\'><div class=\'sm-lockCard\'>  <div class=\'sm-lockTitle\'>" + smIconHtml('lock', 18, '#ffffff') + "<span style=\'margin-left:8px\'>Screen locked</span></div>  <button type=\'button\' id=\'smRUnlockBtn\' class=\'sm-unlockBtn\'>Unlock</button></div></div>");
     jQuery('body').append($ov);
     jQuery('#smRUnlockBtn').on('click', function(e){ e.preventDefault(); setLocked(false); });
     // also allow tap anywhere on overlay to unlock

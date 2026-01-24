@@ -388,7 +388,7 @@
       <div class="modal-body">
         <p>After changing rotation, the Showmaster will show <b>two crosses</b> on the screen.</p>
         <div class="sm-rotNoticeImg">
-          <div class="sm-rotNoticeImgPlaceholder">[Image placeholder]</div>
+          <img class="sm-rotNoticeImgReal" src="plugin.php?plugin=showmaster&file=images/calibration_instructions.png&nopage=1" alt="Touch calibration instructions" />
         </div>
         <p>Please tap both crosses so the touchscreen learns the new orientation.</p>
       </div>
