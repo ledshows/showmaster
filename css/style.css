@@ -1053,7 +1053,7 @@ body.sm-remoteCanvasOnly .sm-canvasOnlyExit:hover{background:rgba(255,255,255,0.
 
 /* Narrow modals (match icon picker width) */
 .modal-dialog.sm-modal-narrow {
-  max-width: 760px;
+  max-width: 620px;
   width: calc(100% - 2rem);
   margin: 1.75rem auto;
 }
@@ -1073,3 +1073,10 @@ body.sm-remoteCanvasOnly .sm-canvasOnlyExit:hover{background:rgba(255,255,255,0.
 
 /* Icon picker: make icons black for visibility */
 .smIconTile .smSvgIconMask{background-color:#000 !important;}
+
+/* Rotation notice: center text + image, keep compact */
+#rotationNoticeModal .modal-body{display:flex;flex-direction:column;align-items:center;text-align:center;}
+#rotationNoticeModal .sm-rotNoticeImgReal{max-width:520px;width:100%;height:auto;max-height:260px;object-fit:contain;margin:12px auto 0;}
+#rotationNoticeModal p{margin:8px 0;}
+
+#pageDeleteConfirmModal .modal-body{text-align:center;}
